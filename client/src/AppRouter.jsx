@@ -1,12 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext.jsx";
-import { ProtectedRoute, RoleRoute, PublicOnlyRoute } from "./guards/RouteGuards.jsx";
-import { lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext.jsx';
+import { ProtectedRoute, RoleRoute, PublicOnlyRoute } from './guards/RouteGuards.jsx';
+import { lazy, Suspense } from 'react';
 
 // ── Lazy-loaded pages ─────────────────────────────────────────────────────────
-const LoginPage        = lazy(() => import("./pages/auth/LoginPage.jsx"));
-const RegisterPage     = lazy(() => import("./pages/auth/RegisterPage.jsx"));
-const UnauthorizedPage = lazy(() => import("./pages/auth/UnauthorizedPage.jsx"));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage.jsx'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage.jsx'));
+const UnauthorizedPage = lazy(() => import('./pages/auth/UnauthorizedPage.jsx'));
 
 // Citizen
 // const CitizenDashboard = lazy(() => import("./pages/citizen/Dashboard.jsx"));
@@ -24,36 +24,42 @@ const UnauthorizedPage = lazy(() => import("./pages/auth/UnauthorizedPage.jsx"))
 // const PublicNerveMap   = lazy(() => import("./pages/public/NerveMap.jsx"));
 
 function PageFallback() {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "center",
-      height: "100vh", background: "#0f172a", color: "#94a3b8",
-      fontFamily: "system-ui, sans-serif", fontSize: "0.875rem",
-    }}>
-      Loading…
-    </div>
-  );
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100vh',
+                background: '#0f172a',
+                color: '#94a3b8',
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: '0.875rem',
+            }}
+        >
+            Loading…
+        </div>
+    );
 }
 
 export default function AppRouter() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
-
-            {/* ── Public (no login required) ───────────────────────────── */}
-            {/* <Route path="/map"          element={<PublicNerveMap />} />
+    return (
+        <BrowserRouter>
+            <AuthProvider>
+                <Suspense fallback={<PageFallback />}>
+                    <Routes>
+                        {/* ── Public (no login required) ───────────────────────────── */}
+                        {/* <Route path="/map"          element={<PublicNerveMap />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} /> */}
 
-            {/* ── Auth pages (redirect if already logged in) ────────────── */}
-            <Route element={<PublicOnlyRoute />}>
-              <Route path="/login"    element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-            </Route>
+                        {/* ── Auth pages (redirect if already logged in) ────────────── */}
+                        <Route element={<PublicOnlyRoute />}>
+                            <Route path="/login" element={<LoginPage />} />
+                            <Route path="/register" element={<RegisterPage />} />
+                        </Route>
 
-            {/* ── Citizen ──────────────────────────────────────────────── */}
-            {/* <Route element={<ProtectedRoute />}>
+                        {/* ── Citizen ──────────────────────────────────────────────── */}
+                        {/* <Route element={<ProtectedRoute />}>
               <Route element={<RoleRoute roles={["citizen"]} redirectTo="/war-room" />}>
                 <Route path="/dashboard"  element={<CitizenDashboard />} />
                 <Route path="/report"     element={<SubmitComplaint />} />
@@ -61,28 +67,27 @@ export default function AppRouter() {
               </Route>
             </Route> */}
 
-            {/* ── Officer / Admin ───────────────────────────────────────── */}
-            {/* <Route element={<ProtectedRoute />}>
+                        {/* ── Officer / Admin ───────────────────────────────────────── */}
+                        {/* <Route element={<ProtectedRoute />}>
               <Route element={<RoleRoute roles={["officer", "admin"]} />}>
                 <Route path="/war-room" element={<OfficerWarRoom />} />
                 <Route path="/reports"  element={<OfficerReports />} />
               </Route>
             </Route> */}
 
-            {/* ── Field Worker ──────────────────────────────────────────── */}
-            {/* <Route element={<ProtectedRoute />}>
+                        {/* ── Field Worker ──────────────────────────────────────────── */}
+                        {/* <Route element={<ProtectedRoute />}>
               <Route element={<RoleRoute roles={["worker"]} />}>
                 <Route path="/tasks" element={<WorkerTasks />} />
               </Route>
             </Route> */}
 
-            {/* ── Fallbacks ─────────────────────────────────────────────── */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-
-          </Routes>
-        </Suspense>
-      </AuthProvider>
-    </BrowserRouter>
-  );
+                        {/* ── Fallbacks ─────────────────────────────────────────────── */}
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </Suspense>
+            </AuthProvider>
+        </BrowserRouter>
+    );
 }
