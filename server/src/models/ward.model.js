@@ -47,7 +47,7 @@ const wardSchema = new Schema(
     { timestamps: true, versionKey: false }
 );
 
-wardSchema.index({ wardNumber: 1 }, { unique: true });
+// wardSchema.index({ wardNumber: 1 }, { unique: true });
 wardSchema.index({ officerId: 1 });
 wardSchema.index({ stressBand: 1 });
 wardSchema.index({ healthScore: -1 });

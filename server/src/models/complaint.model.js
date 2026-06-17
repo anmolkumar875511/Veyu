@@ -113,7 +113,7 @@ complaintSchema.virtual('triageScore').get(function () {
     return (this.severity ?? 5) * 10 + (this.upvotes ?? 0) * 0.5 + Math.min(ageDays, 30);
 });
 
-complaintSchema.pre('save', function (next) {
+complaintSchema.pre('save', function () {
     if (this.isModified('status') && !this.isNew) {
         this.statusHistory.push({
             status: this.status,
@@ -124,7 +124,6 @@ complaintSchema.pre('save', function (next) {
     if (this.status === COMPLAINT_STATUS.RESOLVED && !this.resolvedAt) {
         this.resolvedAt = new Date();
     }
-    next();
 });
 
 const Complaint = model('Complaint', complaintSchema);
