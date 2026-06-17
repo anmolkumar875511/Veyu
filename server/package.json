@@ -15,7 +15,9 @@
         "prettier": "^3.8.4"
     },
     "dependencies": {
+        "@google/generative-ai": "^0.24.1",
         "bcryptjs": "^3.0.3",
+        "cloudinary": "^2.10.0",
         "compression": "^1.8.0",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
@@ -27,6 +29,8 @@
         "jsonwebtoken": "^9.0.3",
         "mongoose": "^9.7.0",
         "morgan": "^1.10.0",
+        "multer": "^2.2.0",
+        "multer-storage-cloudinary": "^4.0.0",
         "node-cron": "^4.2.1"
     },
     "keywords": [
