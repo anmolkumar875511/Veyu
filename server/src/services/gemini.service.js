@@ -4,7 +4,7 @@ import { COMPLAINT_CATEGORIES } from '../models/complaint.model.js';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 function getModel() {
-    return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    return genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 }
 
 function safeParseJSON(text) {
