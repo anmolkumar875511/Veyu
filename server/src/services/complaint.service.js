@@ -12,20 +12,13 @@ import {
 import { deleteCloudinaryImage } from '../config/cloudinary.js';
 
 async function resolveWard(longitude, latitude) {
-    let ward = await Ward.findOne({
-        boundary: {
-            $geoIntersects: {
-                $geometry: { type: 'Point', coordinates: [longitude, latitude] },
-            },
-        },
-        isActive: true,
-    });
-
+    const ward = await Ward.findOrFallback(longitude, latitude);
     if (!ward) {
-        ward = await Ward.findOne({ isActive: true }).sort({ wardNumber: 1 });
+        throw ApiError.badRequest(
+            'No active wards in database. Run `npm run seed` first.',
+            'NO_WARD'
+        );
     }
-
-    if (!ward) throw ApiError.badRequest('No active wards found. Contact admin.', 'NO_WARD');
     return ward;
 }
 
