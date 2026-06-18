@@ -9,9 +9,9 @@ const RegisterPage = lazy(() => import('./pages/auth/RegisterPage.jsx'));
 const UnauthorizedPage = lazy(() => import('./pages/auth/UnauthorizedPage.jsx'));
 
 // Citizen
-// const CitizenDashboard = lazy(() => import("./pages/citizen/Dashboard.jsx"));
-// const SubmitComplaint  = lazy(() => import("./pages/citizen/SubmitComplaint.jsx"));
-// const MyComplaints     = lazy(() => import("./pages/citizen/MyComplaints.jsx"));
+const CitizenDashboard = lazy(() => import('./pages/citizen/Dashboard.jsx'));
+const SubmitComplaint = lazy(() => import('./pages/citizen/SubmitComplaint.jsx'));
+const MyComplaints = lazy(() => import('./pages/citizen/MyComplaints.jsx'));
 
 // Officer / Admin
 // const OfficerWarRoom   = lazy(() => import("./pages/officer/WarRoom.jsx"));
@@ -59,13 +59,15 @@ export default function AppRouter() {
                         </Route>
 
                         {/* ── Citizen ──────────────────────────────────────────────── */}
-                        {/* <Route element={<ProtectedRoute />}>
-              <Route element={<RoleRoute roles={["citizen"]} redirectTo="/war-room" />}>
-                <Route path="/dashboard"  element={<CitizenDashboard />} />
-                <Route path="/report"     element={<SubmitComplaint />} />
-                <Route path="/my-reports" element={<MyComplaints />} />
-              </Route>
-            </Route> */}
+                        <Route element={<ProtectedRoute />}>
+                            <Route
+                                element={<RoleRoute roles={['citizen']} redirectTo="/war-room" />}
+                            >
+                                <Route path="/dashboard" element={<CitizenDashboard />} />
+                                <Route path="/report" element={<SubmitComplaint />} />
+                                <Route path="/my-reports" element={<MyComplaints />} />
+                            </Route>
+                        </Route>
 
                         {/* ── Officer / Admin ───────────────────────────────────────── */}
                         {/* <Route element={<ProtectedRoute />}>
