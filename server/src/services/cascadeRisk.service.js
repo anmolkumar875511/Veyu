@@ -41,7 +41,6 @@ export async function evaluateCascadeRisk(verifiedComplaint) {
     return { flaggedCount: ids.length, flaggedIds: ids.map(String) };
 }
 
-
 export async function clearCascadeFlag(complaintId) {
     await Complaint.updateOne(
         { _id: complaintId },
