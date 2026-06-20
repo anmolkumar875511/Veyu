@@ -122,6 +122,55 @@ Complaint: "${description}"
     }
 }
 
+export async function classifyObservation(imageUrl, note = '') {
+    const fallback = { category: 'Other', severity: 5, confidence: 0 };
+    if (!process.env.GEMINI_API_KEY || !imageUrl) return fallback;
+
+    try {
+        const model = getModel();
+        const prompt = `
+You are assessing a proactive field observation submitted by a municipal
+field worker (not a citizen complaint). Look at the image and return ONLY
+a JSON object (no markdown):
+{
+  "category": "<one of: ${COMPLAINT_CATEGORIES.join(', ')}>",
+  "severity": <integer 1-10>,
+  "confidence": <float 0.0-1.0, how confident you are this is a genuine
+                  civic infrastructure issue worth tracking>
+}
+
+${note ? `Worker's note: "${note}"` : ''}
+
+Set confidence low (< 0.5) if the image is unclear, unrelated to civic
+infrastructure, or ambiguous.
+`.trim();
+
+        const response = await fetch(imageUrl);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        const base64 = buffer.toString('base64');
+        const mimeType = response.headers.get('content-type') ?? 'image/jpeg';
+
+        const result = await model.generateContent([
+            prompt,
+            { inlineData: { mimeType, data: base64 } },
+        ]);
+
+        const parsed = safeParseJSON(result.response.text());
+
+        if (parsed?.category && COMPLAINT_CATEGORIES.includes(parsed.category)) {
+            return {
+                category: parsed.category,
+                severity: Math.min(10, Math.max(1, Math.round(parsed.severity ?? 5))),
+                confidence: Math.min(1, Math.max(0, parsed.confidence ?? 0.5)),
+            };
+        }
+        return fallback;
+    } catch (err) {
+        console.warn('[Gemini] classifyObservation failed:', err.message);
+        return fallback;
+    }
+}
+
 export async function checkDuplicateText(newDesc, existingDesc) {
     if (!process.env.GEMINI_API_KEY) {
         return { isDuplicate: false, similarity: 0 };
