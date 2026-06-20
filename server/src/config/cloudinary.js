@@ -18,8 +18,46 @@ const complaintStorage = new CloudinaryStorage({
     },
 });
 
+const observationStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'nagarik/observations',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
+    },
+});
+
+const completionStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'nagarik/completions',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
+    },
+});
+
 export const uploadComplaintImage = multer({
     storage: complaintStorage,
+    limits: { fileSize: 8 * 1024 * 1024 },
+    fileFilter(_req, file, cb) {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (allowed.includes(file.mimetype)) return cb(null, true);
+        cb(new Error('Only JPG, PNG, and WEBP images are accepted.'));
+    },
+}).single('image');
+
+export const uploadObservationImage = multer({
+    storage: observationStorage,
+    limits: { fileSize: 8 * 1024 * 1024 },
+    fileFilter(_req, file, cb) {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (allowed.includes(file.mimetype)) return cb(null, true);
+        cb(new Error('Only JPG, PNG, and WEBP images are accepted.'));
+    },
+}).single('image');
+
+export const uploadCompletionImage = multer({
+    storage: completionStorage,
     limits: { fileSize: 8 * 1024 * 1024 },
     fileFilter(_req, file, cb) {
         const allowed = ['image/jpeg', 'image/png', 'image/webp'];
