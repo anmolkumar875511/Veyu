@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// src/AppRouter.jsx
+// Complete route tree — single source of truth for all routes in Nagarik.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { ProtectedRoute, RoleRoute, PublicOnlyRoute } from './guards/RouteGuards.jsx';
@@ -14,11 +19,14 @@ const SubmitComplaint = lazy(() => import('./pages/citizen/SubmitComplaint.jsx')
 const MyComplaints = lazy(() => import('./pages/citizen/MyComplaints.jsx'));
 
 // Officer / Admin
-// const OfficerWarRoom   = lazy(() => import("./pages/officer/WarRoom.jsx"));
-// const OfficerReports   = lazy(() => import("./pages/officer/Reports.jsx"));
+const OfficerWarRoom = lazy(() => import('./pages/officer/WarRoom.jsx'));
+const OfficerComplaintDetail = lazy(() => import('./pages/officer/ComplaintDetail.jsx'));
+const OfficerReports = lazy(() => import('./pages/officer/Reports.jsx'));
 
 // Field Worker
-// const WorkerTasks      = lazy(() => import("./pages/worker/Tasks.jsx"));
+const WorkerTasks = lazy(() => import('./pages/worker/Tasks.jsx'));
+const WorkerTaskDetail = lazy(() => import('./pages/worker/TaskDetail.jsx'));
+const WorkerObservations = lazy(() => import('./pages/worker/Observations.jsx'));
 
 // Public
 // const PublicNerveMap   = lazy(() => import("./pages/public/NerveMap.jsx"));
@@ -49,8 +57,8 @@ export default function AppRouter() {
                 <Suspense fallback={<PageFallback />}>
                     <Routes>
                         {/* ── Public (no login required) ───────────────────────────── */}
-                        {/* <Route path="/map"          element={<PublicNerveMap />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} /> */}
+                        {/*<Route path="/map"          element={<PublicNerveMap />} /> */}
+                        <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
                         {/* ── Auth pages (redirect if already logged in) ────────────── */}
                         <Route element={<PublicOnlyRoute />}>
@@ -70,19 +78,22 @@ export default function AppRouter() {
                         </Route>
 
                         {/* ── Officer / Admin ───────────────────────────────────────── */}
-                        {/* <Route element={<ProtectedRoute />}>
-              <Route element={<RoleRoute roles={["officer", "admin"]} />}>
-                <Route path="/war-room" element={<OfficerWarRoom />} />
-                <Route path="/reports"  element={<OfficerReports />} />
-              </Route>
-            </Route> */}
+                        <Route element={<ProtectedRoute />}>
+                            <Route element={<RoleRoute roles={['officer', 'admin']} />}>
+                                <Route path="/war-room" element={<OfficerWarRoom />} />
+                                <Route path="/war-room/:id" element={<OfficerComplaintDetail />} />
+                                <Route path="/reports" element={<OfficerReports />} />
+                            </Route>
+                        </Route>
 
                         {/* ── Field Worker ──────────────────────────────────────────── */}
-                        {/* <Route element={<ProtectedRoute />}>
-              <Route element={<RoleRoute roles={["worker"]} />}>
-                <Route path="/tasks" element={<WorkerTasks />} />
-              </Route>
-            </Route> */}
+                        <Route element={<ProtectedRoute />}>
+                            <Route element={<RoleRoute roles={['worker']} />}>
+                                <Route path="/tasks" element={<WorkerTasks />} />
+                                <Route path="/tasks/:id" element={<WorkerTaskDetail />} />
+                                <Route path="/observations" element={<WorkerObservations />} />
+                            </Route>
+                        </Route>
 
                         {/* ── Fallbacks ─────────────────────────────────────────────── */}
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
