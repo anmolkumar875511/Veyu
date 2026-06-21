@@ -1,7 +1,3 @@
-// src/constants/complaint.constants.js
-// Mirrors the backend COMPLAINT_CATEGORIES array.
-// Single source of truth on the frontend.
-
 export const COMPLAINT_CATEGORIES = [
     'Road Damage',
     'Pothole',
@@ -23,4 +19,28 @@ export const COMPLAINT_STATUS_LABELS = {
     resolved: 'Resolved',
     rejected: 'Rejected',
     duplicate: 'Duplicate',
+};
+
+export const ASSIGNMENT_STATUS_LABELS = {
+    pending: 'Pending',
+    acknowledged: 'Acknowledged',
+    en_route: 'En Route',
+    on_site: 'On Site',
+    completed: 'Completed',
+    reassigned: 'Reassigned',
+};
+
+export const ASSIGNMENT_NEXT_ACTION = {
+    pending: 'Acknowledge task',
+    acknowledged: 'Start heading there',
+    en_route: 'Mark arrived',
+    on_site: 'Complete task',
+};
+
+export const OBSERVATION_STATUS_LABELS = {
+    pending: 'Pending AI Review',
+    ai_reviewed: 'AI Reviewed',
+    elevated: 'Elevated',
+    dismissed: 'Dismissed',
+    flagged: 'Needs Review',
 };
