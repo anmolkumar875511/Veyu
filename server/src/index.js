@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { createApp } from './app.js';
 import { connectDB, disconnectDB, getDBHealth } from './config/db.js';
 import { validateJwtConfig } from './config/jwt.config.js';
+import { startPulseGridCron } from './cron/pulseGrid.cron.js';
 
 function validateEnv() {
     const required = [
@@ -92,6 +93,8 @@ async function main() {
     registerGlobalErrorHandlers();
 
     await connectDB();
+
+    startPulseGridCron();
 
     const app = createApp();
     const httpServer = createServer(app);
