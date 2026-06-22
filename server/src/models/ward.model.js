@@ -12,18 +12,50 @@ export const STRESS_BANDS = {
 
 const wardSchema = new Schema(
     {
-        name: { type: String, required: true, trim: true, unique: true },
-        wardNumber: { type: Number, required: true, unique: true, min: 1 },
-        city: { type: String, required: true, trim: true },
-
-        officerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-
-        boundary: {
-            type: { type: String, enum: ['Polygon'] },
-            coordinates: { type: [[[Number]]] },
+        name: {
+            type: String,
+            required: [true, 'Ward name is required'],
+            trim: true,
+            unique: true,
         },
 
-        pulseVelocity: { type: Number, default: 1.0, min: 0 },
+        wardNumber: {
+            type: Number,
+            required: [true, 'Ward number is required'],
+            unique: true,
+            min: 1,
+        },
+
+        city: {
+            type: String,
+            required: [true, 'City is required'],
+            trim: true,
+        },
+
+        officerId: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+        },
+
+        boundary: {
+            type: {
+                type: String,
+                enum: ['Polygon'],
+                default: 'Polygon',
+            },
+            coordinates: {
+                type: [[[Number]]],
+                default: undefined,
+            },
+        },
+
+        pulseVelocity: {
+            type: Number,
+            default: 1.0,
+            min: 0,
+        },
+
         stressBand: {
             type: String,
             enum: Object.values(STRESS_BANDS),
@@ -33,7 +65,12 @@ const wardSchema = new Schema(
         complaintsPrev48h: { type: Number, default: 0, min: 0 },
         pulseLastUpdated: { type: Date, default: null },
 
-        healthScore: { type: Number, default: 100, min: 0, max: 100 },
+        healthScore: {
+            type: Number,
+            default: 100,
+            min: 0,
+            max: 100,
+        },
 
         stats: {
             totalOpen: { type: Number, default: 0 },
@@ -42,12 +79,17 @@ const wardSchema = new Schema(
             resolutionRate: { type: Number, default: 0 },
         },
 
-        isActive: { type: Boolean, default: true },
+        isActive: {
+            type: Boolean,
+            default: true,
+        },
     },
-    { timestamps: true, versionKey: false }
+    {
+        timestamps: true,
+        versionKey: false,
+    }
 );
 
-// wardSchema.index({ wardNumber: 1 }, { unique: true });
 wardSchema.index({ officerId: 1 });
 wardSchema.index({ stressBand: 1 });
 wardSchema.index({ healthScore: -1 });
