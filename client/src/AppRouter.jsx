@@ -29,7 +29,10 @@ const WorkerTaskDetail = lazy(() => import('./pages/worker/TaskDetail.jsx'));
 const WorkerObservations = lazy(() => import('./pages/worker/Observations.jsx'));
 
 // Public
-// const PublicNerveMap   = lazy(() => import("./pages/public/NerveMap.jsx"));
+const PublicNerveMap = lazy(() => import('./pages/public/NerveMap.jsx'));
+
+// Admin
+const WardManagement = lazy(() => import('./pages/admin/WardManagement.jsx'));
 
 function PageFallback() {
     return (
@@ -57,7 +60,7 @@ export default function AppRouter() {
                 <Suspense fallback={<PageFallback />}>
                     <Routes>
                         {/* ── Public (no login required) ───────────────────────────── */}
-                        {/*<Route path="/map"          element={<PublicNerveMap />} /> */}
+                        <Route path="/map" element={<PublicNerveMap />} />
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
                         {/* ── Auth pages (redirect if already logged in) ────────────── */}
@@ -83,6 +86,13 @@ export default function AppRouter() {
                                 <Route path="/war-room" element={<OfficerWarRoom />} />
                                 <Route path="/war-room/:id" element={<OfficerComplaintDetail />} />
                                 <Route path="/reports" element={<OfficerReports />} />
+                            </Route>
+                        </Route>
+
+                        {/* ── Admin only ───────────────────────────────────────────── */}
+                        <Route element={<ProtectedRoute />}>
+                            <Route element={<RoleRoute roles={['admin']} />}>
+                                <Route path="/admin/wards" element={<WardManagement />} />
                             </Route>
                         </Route>
 

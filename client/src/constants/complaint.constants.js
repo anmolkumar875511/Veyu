@@ -1,3 +1,7 @@
+// src/constants/complaint.constants.js
+// Mirrors the backend COMPLAINT_CATEGORIES array.
+// Single source of truth on the frontend.
+
 export const COMPLAINT_CATEGORIES = [
     'Road Damage',
     'Pothole',
@@ -30,6 +34,7 @@ export const ASSIGNMENT_STATUS_LABELS = {
     reassigned: 'Reassigned',
 };
 
+// Maps current assignment status → label of the NEXT action button
 export const ASSIGNMENT_NEXT_ACTION = {
     pending: 'Acknowledge task',
     acknowledged: 'Start heading there',
@@ -43,4 +48,13 @@ export const OBSERVATION_STATUS_LABELS = {
     elevated: 'Elevated',
     dismissed: 'Dismissed',
     flagged: 'Needs Review',
+};
+
+// ── PulseGrid stress bands ────────────────────────────────────────────────────
+export const STRESS_BAND_META = {
+    calm: { label: 'Calm', color: '#22c55e' },
+    stable: { label: 'Stable', color: '#3b82f6' },
+    rising: { label: 'Rising', color: '#f59e0b' },
+    critical: { label: 'Critical', color: '#f97316' },
+    emergency: { label: 'Emergency', color: '#ef4444' },
 };
