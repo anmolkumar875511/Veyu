@@ -1,22 +1,25 @@
 import Forecast, { FORECAST_STATUS, FORECAST_TRIGGERS } from '../models/forecast.model.js';
 import Complaint from '../models/complaint.model.js';
 import Ward from '../models/ward.model.js';
+import User from '../models/user.model.js';
+import { NOTIFICATION_TYPES } from '../models/notification.model.js';
 import { ApiError } from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 import { getRainForecast } from './weather.service.js';
+import { notify } from './notification.service.js';
+import { SILENT_SIGNAL } from '../constants/index.js';
 
-const WEATHER_SENSITIVE_CATEGORIES = [
-    'Water Leakage',
-    'Drainage',
-    'Sewage',
-    'Road Damage',
-    'Pothole',
-];
-
-const RAIN_EVENT_THRESHOLD_MM = 15;
-
-const SEASONAL_SIGNIFICANCE_MULTIPLIER = 1.8;
-
+const SCOPE = 'SilentSignal';
 const DAY_MS = 86_400_000;
+
+const {
+    WEATHER_SENSITIVE_CATEGORIES,
+    RAIN_EVENT_THRESHOLD_MM,
+    SEASONAL_SIGNIFICANCE_MULTIPLIER,
+    SEASONAL_WINDOW_DAYS,
+    FORECAST_VALIDITY_DAYS,
+    MIN_YEARS_FOR_PATTERN,
+} = SILENT_SIGNAL;
 
 async function detectSeasonalPatterns() {
     const now = new Date();
@@ -35,7 +38,10 @@ async function detectSeasonalPatterns() {
         {
             $match: {
                 $expr: {
-                    $lte: [{ $abs: { $subtract: ['$dayOfYear', dayOfYear] } }, 7],
+                    $lte: [
+                        { $abs: { $subtract: ['$dayOfYear', dayOfYear] } },
+                        SEASONAL_WINDOW_DAYS,
+                    ],
                 },
             },
         },
@@ -53,7 +59,7 @@ async function detectSeasonalPatterns() {
                 yearCount: { $sum: 1 },
             },
         },
-        { $match: { yearCount: { $gte: 2 } } },
+        { $match: { yearCount: { $gte: MIN_YEARS_FOR_PATTERN } } },
     ]);
 
     const patterns = [];
@@ -62,7 +68,7 @@ async function detectSeasonalPatterns() {
         const { wardId, category } = r._id;
 
         const yearlyTotal = await Complaint.countDocuments({ wardId, category });
-        const yearlyBaselinePerWindow = yearlyTotal / (365 / 14);
+        const yearlyBaselinePerWindow = yearlyTotal / (365 / (SEASONAL_WINDOW_DAYS * 2));
 
         if (yearlyBaselinePerWindow === 0) continue;
 
@@ -116,6 +122,23 @@ async function checkWeatherCorrelation(wardId, category) {
     };
 }
 
+async function notifyWardOfficer(wardId, forecast, wardName) {
+    const officer = await User.findOne({
+        assignedWard: wardId,
+        role: 'officer',
+        isActive: true,
+    }).select('_id');
+    if (!officer) return;
+
+    await notify({
+        userId: officer._id,
+        type: NOTIFICATION_TYPES.SILENT_SIGNAL_ALERT,
+        data: { summary: forecast.summary },
+        refModel: 'Forecast',
+        refId: forecast._id,
+    });
+}
+
 export async function generateForecasts() {
     const seasonalPatterns = await detectSeasonalPatterns();
     const created = [];
@@ -137,19 +160,19 @@ export async function generateForecasts() {
         const wardName = ward?.name ?? 'Unknown ward';
 
         const predictedStartDate = new Date();
-        const predictedEndDate = new Date(Date.now() + 10 * DAY_MS);
+        const predictedEndDate = new Date(Date.now() + FORECAST_VALIDITY_DAYS * DAY_MS);
 
         let trigger = FORECAST_TRIGGERS.SEASONAL;
         let confidence = Math.min(
             0.95,
             0.5 + (multiplier - SEASONAL_SIGNIFICANCE_MULTIPLIER) * 0.15
         );
-        let summary = `${wardName} historically receives ${multiplier}× more ${category} complaints during this period of the year, based on data from ${yearsObserved.join(', ')}.`;
+        let summary = `${wardName} historically receives ${multiplier}x more ${category} complaints during this period of the year, based on data from ${yearsObserved.join(', ')}.`;
 
         if (weatherInfo) {
             trigger = FORECAST_TRIGGERS.COMBINED;
             confidence = Math.min(0.97, confidence + 0.2);
-            summary = `${wardName} historically receives ${multiplier}× more ${category} complaints following heavy rain (${Math.round(weatherInfo.monsoonShare * 100)}% of cases occur in monsoon months). Forecast shows ${weatherInfo.forecastMm}mm rain expected around ${weatherInfo.forecastDate.toLocaleDateString('en-IN')}.`;
+            summary = `${wardName} historically receives ${multiplier}x more ${category} complaints following heavy rain (${Math.round(weatherInfo.monsoonShare * 100)}% of cases occur in monsoon months). Forecast shows ${weatherInfo.forecastMm}mm rain expected around ${weatherInfo.forecastDate.toLocaleDateString('en-IN')}.`;
         }
 
         const forecast = await Forecast.create({
@@ -173,18 +196,26 @@ export async function generateForecasts() {
             baselineAvgComplaints: avgWindowCount,
         });
 
+        await notifyWardOfficer(wardId, forecast, wardName);
+
         created.push(forecast);
     }
+
+    logger.info(
+        SCOPE,
+        `Generated ${created.length} forecast(s) from ${seasonalPatterns.length} detected pattern(s)`
+    );
 
     return { created: created.length, forecasts: created };
 }
 
 export async function getActiveForecasts(query) {
-    const { wardId, category, minConfidence = 0.6 } = query;
+    const { wardId, category } = query;
+    const minConfidence = parseFloat(query.minConfidence) || 0.6;
 
     const filter = {
         status: FORECAST_STATUS.ACTIVE,
-        confidence: { $gte: parseFloat(minConfidence) },
+        confidence: { $gte: minConfidence },
     };
     if (wardId) filter.wardId = wardId;
     if (category) filter.category = category;
@@ -237,6 +268,11 @@ export async function expireAndScoreForecasts() {
 
         await f.save();
     }
+
+    logger.info(
+        SCOPE,
+        `Scored ${toScore.length} forecast(s): ${confirmed} confirmed, ${expired} expired`
+    );
 
     return { scored: toScore.length, confirmed, expired };
 }

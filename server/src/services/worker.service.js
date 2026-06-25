@@ -1,11 +1,15 @@
 import Assignment, { ASSIGNMENT_STATUS } from '../models/assignment.model.js';
 import Complaint, { COMPLAINT_STATUS } from '../models/complaint.model.js';
 import Observation, { OBSERVATION_STATUS } from '../models/observation.model.js';
+import { NOTIFICATION_TYPES } from '../models/notification.model.js';
 import User from '../models/user.model.js';
 import { ApiError } from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 import { classifyObservation } from './gemini.service.js';
+import { notify } from './notification.service.js';
+import { FIELDMESH, PAGINATION } from '../constants/index.js';
 
-const AUTO_ELEVATE_CONFIDENCE_THRESHOLD = 0.8;
+const SCOPE = 'Worker';
 
 export async function getMyTasks(workerId, query) {
     const { status } = query;
@@ -68,10 +72,21 @@ export async function advanceTaskStatus(assignmentId, workerId) {
     await assignment.save();
 
     if (nextStatus === ASSIGNMENT_STATUS.EN_ROUTE || nextStatus === ASSIGNMENT_STATUS.ON_SITE) {
-        await Complaint.updateOne(
+        const complaint = await Complaint.findOneAndUpdate(
             { _id: assignment.complaintId },
-            { $set: { status: COMPLAINT_STATUS.IN_PROGRESS } }
-        );
+            { $set: { status: COMPLAINT_STATUS.IN_PROGRESS } },
+            { new: true }
+        ).select('title createdBy');
+
+        if (complaint && nextStatus === ASSIGNMENT_STATUS.EN_ROUTE) {
+            await notify({
+                userId: complaint.createdBy,
+                type: NOTIFICATION_TYPES.COMPLAINT_IN_PROGRESS,
+                data: { title: complaint.title },
+                refModel: 'Complaint',
+                refId: complaint._id,
+            });
+        }
     }
 
     return { assignment };
@@ -102,9 +117,30 @@ export async function completeTask(assignmentId, workerId, dto, file) {
         complaint.resolutionImageUrl = file.path;
         complaint._statusChangedBy = workerId;
         await complaint.save();
+
+        await notify({
+            userId: complaint.createdBy,
+            type: NOTIFICATION_TYPES.COMPLAINT_RESOLVED,
+            data: { title: complaint.title },
+            refModel: 'Complaint',
+            refId: complaint._id,
+        });
     }
 
-    await User.updateOne({ _id: workerId }, { $inc: { fieldPoints: 10 } });
+    await User.updateOne(
+        { _id: workerId },
+        { $inc: { fieldPoints: FIELDMESH.POINTS_TASK_COMPLETED } }
+    );
+
+    await notify({
+        userId: workerId,
+        type: NOTIFICATION_TYPES.FIELD_POINTS_AWARDED,
+        data: { points: FIELDMESH.POINTS_TASK_COMPLETED, reason: 'completing a task' },
+        refModel: 'Assignment',
+        refId: assignment._id,
+    });
+
+    logger.success(SCOPE, `Task ${assignmentId} completed by worker ${workerId}`);
 
     return { assignment, complaint };
 }
@@ -145,11 +181,14 @@ export async function submitObservation(workerId, dto, file) {
         aiSeverity: aiResult.severity,
         aiConfidence: aiResult.confidence,
         status:
-            aiResult.confidence < 0.4 ? OBSERVATION_STATUS.FLAGGED : OBSERVATION_STATUS.AI_REVIEWED,
+            aiResult.confidence < FIELDMESH.LOW_CONFIDENCE_FLAG_THRESHOLD
+                ? OBSERVATION_STATUS.FLAGGED
+                : OBSERVATION_STATUS.AI_REVIEWED,
     });
 
     let autoElevatedComplaint = null;
-    if (aiResult.confidence >= AUTO_ELEVATE_CONFIDENCE_THRESHOLD) {
+
+    if (aiResult.confidence >= FIELDMESH.AUTO_ELEVATE_CONFIDENCE_THRESHOLD) {
         autoElevatedComplaint = await Complaint.create({
             title: note?.slice(0, 80) || `${aiResult.category} reported by field worker`,
             description: note || `Field observation: ${aiResult.category}.`,
@@ -168,54 +207,89 @@ export async function submitObservation(workerId, dto, file) {
         observation.status = OBSERVATION_STATUS.ELEVATED;
         observation.elevatedTo = autoElevatedComplaint._id;
         observation.elevatedAt = new Date();
-        observation.pointsAwarded = 15;
+        observation.pointsAwarded = FIELDMESH.POINTS_OBSERVATION_ELEVATED;
         await observation.save();
 
-        await User.updateOne({ _id: workerId }, { $inc: { fieldPoints: 15 } });
+        await User.updateOne(
+            { _id: workerId },
+            { $inc: { fieldPoints: FIELDMESH.POINTS_OBSERVATION_ELEVATED } }
+        );
+
+        await notify({
+            userId: workerId,
+            type: NOTIFICATION_TYPES.FIELD_POINTS_AWARDED,
+            data: {
+                points: FIELDMESH.POINTS_OBSERVATION_ELEVATED,
+                reason: 'an auto-elevated observation',
+            },
+            refModel: 'Observation',
+            refId: observation._id,
+        });
+
+        logger.success(
+            SCOPE,
+            `Observation ${observation._id} auto-elevated to complaint ${autoElevatedComplaint._id} (confidence=${aiResult.confidence})`
+        );
     } else {
-        await User.updateOne({ _id: workerId }, { $inc: { fieldPoints: 2 } });
+        await User.updateOne(
+            { _id: workerId },
+            { $inc: { fieldPoints: FIELDMESH.POINTS_OBSERVATION_SUBMITTED } }
+        );
+
+        if (observation.status === OBSERVATION_STATUS.AI_REVIEWED) {
+            const officer = await User.findOne({
+                assignedWard: worker.assignedWard,
+                role: 'officer',
+                isActive: true,
+            }).select('_id');
+            const Ward = (await import('../models/ward.model.js')).default;
+            const ward = await Ward.findById(worker.assignedWard).select('name');
+
+            if (officer) {
+                await notify({
+                    userId: officer._id,
+                    type: NOTIFICATION_TYPES.OBSERVATION_NEEDS_REVIEW,
+                    data: { category: aiResult.category, wardName: ward?.name ?? 'your ward' },
+                    refModel: 'Observation',
+                    refId: observation._id,
+                });
+            }
+        }
     }
 
     return { observation, autoElevated: !!autoElevatedComplaint, complaint: autoElevatedComplaint };
 }
 
 export async function getMyObservations(workerId, query) {
-    const { page = 1, limit = 10, status } = query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const page = parseInt(query.page) || PAGINATION.DEFAULT_PAGE;
+    const limit = Math.min(parseInt(query.limit) || PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
+    const skip = (page - 1) * limit;
 
     const filter = { workerId };
-    if (status) filter.status = status;
+    if (query.status) filter.status = query.status;
 
     const [observations, total] = await Promise.all([
-        Observation.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+        Observation.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
         Observation.countDocuments(filter),
     ]);
 
-    return {
-        observations,
-        total,
-        page: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-    };
+    return { observations, total, page, totalPages: Math.ceil(total / limit) || 1 };
 }
 
 export async function getWorkerSummary(workerId) {
+    const ACTIVE_ASSIGNMENT_STATUSES = [
+        ASSIGNMENT_STATUS.PENDING,
+        ASSIGNMENT_STATUS.ACKNOWLEDGED,
+        ASSIGNMENT_STATUS.EN_ROUTE,
+        ASSIGNMENT_STATUS.ON_SITE,
+    ];
+
     const [worker, completedCount, pendingCount, observationCount] = await Promise.all([
         User.findById(workerId)
             .select('name fieldPoints assignedWard')
             .populate('assignedWard', 'name wardNumber'),
         Assignment.countDocuments({ workerId, status: ASSIGNMENT_STATUS.COMPLETED }),
-        Assignment.countDocuments({
-            workerId,
-            status: {
-                $in: [
-                    ASSIGNMENT_STATUS.PENDING,
-                    ASSIGNMENT_STATUS.ACKNOWLEDGED,
-                    ASSIGNMENT_STATUS.EN_ROUTE,
-                    ASSIGNMENT_STATUS.ON_SITE,
-                ],
-            },
-        }),
+        Assignment.countDocuments({ workerId, status: { $in: ACTIVE_ASSIGNMENT_STATUSES } }),
         Observation.countDocuments({ workerId }),
     ]);
 

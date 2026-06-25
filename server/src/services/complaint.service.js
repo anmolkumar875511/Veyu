@@ -2,14 +2,20 @@ import Complaint, { COMPLAINT_STATUS } from '../models/complaint.model.js';
 import Vote from '../models/vote.model.js';
 import Ward from '../models/ward.model.js';
 import User from '../models/user.model.js';
+import { NOTIFICATION_TYPES } from '../models/notification.model.js';
 import { ApiError } from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 import {
     classifyComplaint,
     scoreSeverity,
     generateTitle,
     checkDuplicateText,
 } from './gemini.service.js';
+import { notify } from './notification.service.js';
 import { deleteCloudinaryImage } from '../config/cloudinary.js';
+import { DUPLICATE_DETECTION, REPUTATION, PAGINATION, WARD_HEALTH } from '../constants/index.js';
+
+const SCOPE = 'Complaint';
 
 async function resolveWard(longitude, latitude) {
     const ward = await Ward.findOrFallback(longitude, latitude);
@@ -27,12 +33,12 @@ async function findDuplicate(longitude, latitude, description) {
         location: {
             $nearSphere: {
                 $geometry: { type: 'Point', coordinates: [longitude, latitude] },
-                $maxDistance: 50,
+                $maxDistance: DUPLICATE_DETECTION.PROXIMITY_RADIUS_METRES,
             },
         },
         status: { $nin: [COMPLAINT_STATUS.REJECTED, COMPLAINT_STATUS.DUPLICATE] },
     })
-        .limit(3)
+        .limit(DUPLICATE_DETECTION.MAX_CANDIDATES_CHECKED)
         .select('description title');
 
     for (const c of nearby) {
@@ -83,6 +89,15 @@ export async function submitComplaint(userId, dto, file) {
             status: COMPLAINT_STATUS.DUPLICATE,
             duplicateOf: duplicate._id,
         });
+
+        await notify({
+            userId,
+            type: NOTIFICATION_TYPES.DUPLICATE_DETECTED,
+            data: { title: duplicate.title },
+            refModel: 'Complaint',
+            refId: duplicate._id,
+        });
+
         return { complaint: comp, isDuplicate: true, duplicateOf: duplicate };
     }
 
@@ -103,34 +118,46 @@ export async function submitComplaint(userId, dto, file) {
         createdBy: userId,
     });
 
-    await User.updateOne({ _id: userId }, { $inc: { reputationScore: 5 } });
+    await User.updateOne(
+        { _id: userId },
+        { $inc: { reputationScore: REPUTATION.POINTS_COMPLAINT_SUBMITTED } }
+    );
+
+    await notify({
+        userId,
+        type: NOTIFICATION_TYPES.REPUTATION_EARNED,
+        data: { points: REPUTATION.POINTS_COMPLAINT_SUBMITTED },
+        refModel: 'Complaint',
+        refId: complaint._id,
+    });
+
+    logger.success(
+        SCOPE,
+        `Complaint ${complaint._id} submitted by user ${userId} in ward ${ward._id}`
+    );
 
     return { complaint, isDuplicate: false, duplicateOf: null };
 }
 
 export async function getMyComplaints(userId, query) {
-    const { page = 1, limit = 8, status } = query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const page = parseInt(query.page) || PAGINATION.DEFAULT_PAGE;
+    const limit = Math.min(parseInt(query.limit) || PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
+    const skip = (page - 1) * limit;
 
     const filter = { createdBy: userId };
-    if (status) filter.status = status;
+    if (query.status) filter.status = query.status;
 
     const [complaints, total] = await Promise.all([
         Complaint.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit))
+            .limit(limit)
             .populate('wardId', 'name wardNumber')
             .lean(),
         Complaint.countDocuments(filter),
     ]);
 
-    return {
-        complaints,
-        total,
-        page: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-    };
+    return { complaints, total, page, totalPages: Math.ceil(total / limit) || 1 };
 }
 
 export async function getComplaintById(complaintId, requestingUserId) {
@@ -170,7 +197,18 @@ export async function toggleUpvote(complaintId, userId) {
     await Complaint.updateOne({ _id: complaintId }, { $inc: { upvotes: 1 } });
 
     if (complaint.createdBy.toString() !== userId.toString()) {
-        await User.updateOne({ _id: complaint.createdBy }, { $inc: { reputationScore: 2 } });
+        await User.updateOne(
+            { _id: complaint.createdBy },
+            { $inc: { reputationScore: REPUTATION.POINTS_UPVOTE_RECEIVED } }
+        );
+
+        await notify({
+            userId: complaint.createdBy,
+            type: NOTIFICATION_TYPES.UPVOTE_RECEIVED,
+            data: { title: complaint.title },
+            refModel: 'Complaint',
+            refId: complaint._id,
+        });
     }
 
     return { upvotes: complaint.upvotes + 1, hasVoted: true };
@@ -196,12 +234,16 @@ export async function deleteComplaint(complaintId, userId) {
     await Vote.deleteMany({ complaintId });
     await complaint.deleteOne();
 
-    await User.updateOne({ _id: userId }, { $inc: { reputationScore: -5 } });
+    await User.updateOne(
+        { _id: userId },
+        { $inc: { reputationScore: -REPUTATION.POINTS_COMPLAINT_SUBMITTED } }
+    );
 }
 
 export async function getPublicStats() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const since = new Date(Date.now() - WARD_HEALTH.STATS_WINDOW_DAYS * 86_400_000);
 
     const [totalOpen, resolvedToday, categoryAgg] = await Promise.all([
         Complaint.countDocuments({
@@ -218,7 +260,7 @@ export async function getPublicStats() {
             resolvedAt: { $gte: today },
         }),
         Complaint.aggregate([
-            { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 86_400_000) } } },
+            { $match: { createdAt: { $gte: since } } },
             { $group: { _id: '$category', count: { $sum: 1 } } },
             { $sort: { count: -1 } },
             { $limit: 1 },
@@ -230,14 +272,12 @@ export async function getPublicStats() {
             $match: {
                 status: COMPLAINT_STATUS.RESOLVED,
                 resolvedAt: { $exists: true },
-                createdAt: { $gte: new Date(Date.now() - 30 * 86_400_000) },
+                createdAt: { $gte: since },
             },
         },
         {
             $project: {
-                hours: {
-                    $divide: [{ $subtract: ['$resolvedAt', '$createdAt'] }, 3_600_000],
-                },
+                hours: { $divide: [{ $subtract: ['$resolvedAt', '$createdAt'] }, 3_600_000] },
             },
         },
         { $group: { _id: null, avg: { $avg: '$hours' } } },
@@ -252,7 +292,8 @@ export async function getPublicStats() {
 }
 
 export async function getPublicMapComplaints(query) {
-    const { status, category, limit = 200 } = query;
+    const { status, category } = query;
+    const limit = Math.min(parseInt(query.limit) || 200, 500);
 
     const filter = {
         status: { $nin: [COMPLAINT_STATUS.DUPLICATE, COMPLAINT_STATUS.REJECTED] },
@@ -262,7 +303,7 @@ export async function getPublicMapComplaints(query) {
 
     const complaints = await Complaint.find(filter)
         .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
+        .limit(limit)
         .select('title category status severity location address upvotes createdAt wardId')
         .populate('wardId', 'name wardNumber')
         .lean();

@@ -1,14 +1,29 @@
 import Complaint, { COMPLAINT_STATUS } from '../models/complaint.model.js';
 import Assignment, { ASSIGNMENT_STATUS } from '../models/assignment.model.js';
 import Observation, { OBSERVATION_STATUS } from '../models/observation.model.js';
+import { NOTIFICATION_TYPES } from '../models/notification.model.js';
 import User from '../models/user.model.js';
 import Ward from '../models/ward.model.js';
 import { ApiError } from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 import { evaluateCascadeRisk, clearCascadeFlag } from './cascadeRisk.service.js';
+import { notify } from './notification.service.js';
+import { FIELDMESH, PAGINATION, WARD_HEALTH } from '../constants/index.js';
+
+const SCOPE = 'Officer';
+
+const STATUS_NOTIFICATION_MAP = {
+    [COMPLAINT_STATUS.VERIFIED]: NOTIFICATION_TYPES.COMPLAINT_VERIFIED,
+    [COMPLAINT_STATUS.IN_PROGRESS]: NOTIFICATION_TYPES.COMPLAINT_IN_PROGRESS,
+    [COMPLAINT_STATUS.RESOLVED]: NOTIFICATION_TYPES.COMPLAINT_RESOLVED,
+    [COMPLAINT_STATUS.REJECTED]: NOTIFICATION_TYPES.COMPLAINT_REJECTED,
+};
 
 export async function getTriageQueue(officerWardId, query) {
-    const { page = 1, limit = 20, status, category, wardId } = query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const page = parseInt(query.page) || PAGINATION.DEFAULT_PAGE;
+    const limit = Math.min(parseInt(query.limit) || PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
+    const skip = (page - 1) * limit;
+    const { status, category, wardId } = query;
 
     const filter = {
         status: {
@@ -30,19 +45,14 @@ export async function getTriageQueue(officerWardId, query) {
         Complaint.find(filter)
             .sort({ cascadeRisk: -1, severity: -1, upvotes: -1, createdAt: 1 })
             .skip(skip)
-            .limit(parseInt(limit))
+            .limit(limit)
             .populate('wardId', 'name wardNumber stressBand')
             .populate('createdBy', 'name')
             .lean(),
         Complaint.countDocuments(filter),
     ]);
 
-    return {
-        complaints,
-        total,
-        page: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-    };
+    return { complaints, total, page, totalPages: Math.ceil(total / limit) || 1 };
 }
 
 export async function getComplaintDetail(complaintId) {
@@ -89,9 +99,41 @@ export async function updateComplaintStatus(complaintId, officerId, dto) {
     }
     await complaint.save();
 
+    const notifType = STATUS_NOTIFICATION_MAP[status];
+    if (notifType) {
+        await notify({
+            userId: complaint.createdBy,
+            type: notifType,
+            data: { title: complaint.title, note },
+            refModel: 'Complaint',
+            refId: complaint._id,
+        });
+    }
+
     let cascadeResult = { flaggedCount: 0, flaggedIds: [] };
     if (status === COMPLAINT_STATUS.VERIFIED) {
         cascadeResult = await evaluateCascadeRisk(complaint);
+        if (cascadeResult.flaggedCount > 0) {
+            logger.info(
+                SCOPE,
+                `Cascade risk flagged ${cascadeResult.flaggedCount} complaint(s) near ${complaint._id}`
+            );
+
+            const flagged = await Complaint.find({ _id: { $in: cascadeResult.flaggedIds } }).select(
+                'title createdBy'
+            );
+            await Promise.all(
+                flagged.map((f) =>
+                    notify({
+                        userId: f.createdBy,
+                        type: NOTIFICATION_TYPES.CASCADE_RISK_FLAGGED,
+                        data: { title: f.title },
+                        refModel: 'Complaint',
+                        refId: f._id,
+                    })
+                )
+            );
+        }
     }
 
     if (
@@ -147,6 +189,23 @@ export async function dispatchToWorker(complaintId, officerId, dto) {
     complaint._statusChangedBy = officerId;
     await complaint.save();
 
+    await Promise.all([
+        notify({
+            userId: complaint.createdBy,
+            type: NOTIFICATION_TYPES.COMPLAINT_ASSIGNED,
+            data: { title: complaint.title },
+            refModel: 'Complaint',
+            refId: complaint._id,
+        }),
+        notify({
+            userId: workerId,
+            type: NOTIFICATION_TYPES.TASK_ASSIGNED,
+            data: { title: complaint.title, instructions },
+            refModel: 'Assignment',
+            refId: assignment._id,
+        }),
+    ]);
+
     return { assignment, complaint };
 }
 
@@ -159,7 +218,10 @@ export async function reassignWorker(complaintId, officerId, dto) {
     });
     if (!current) throw ApiError.notFound('Active assignment');
 
-    const newWorker = await User.findOne({ _id: newWorkerId, role: 'worker', isActive: true });
+    const [newWorker, complaint] = await Promise.all([
+        User.findOne({ _id: newWorkerId, role: 'worker', isActive: true }),
+        Complaint.findById(complaintId).select('title'),
+    ]);
     if (!newWorker)
         throw ApiError.badRequest('New worker not found or inactive.', 'INVALID_WORKER');
 
@@ -188,12 +250,31 @@ export async function reassignWorker(complaintId, officerId, dto) {
         previousWorkerId: current.workerId,
     });
 
+    await Promise.all([
+        notify({
+            userId: current.workerId,
+            type: NOTIFICATION_TYPES.TASK_REASSIGNED,
+            data: { title: complaint?.title ?? 'a task' },
+            refModel: 'Assignment',
+            refId: current._id,
+        }),
+        notify({
+            userId: newWorkerId,
+            type: NOTIFICATION_TYPES.TASK_ASSIGNED,
+            data: { title: complaint?.title ?? 'a task', instructions: current.instructions },
+            refModel: 'Assignment',
+            refId: newAssignment._id,
+        }),
+    ]);
+
     return { assignment: newAssignment };
 }
 
 export async function getObservationQueue(officerWardId, query) {
-    const { page = 1, limit = 20, status, wardId } = query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const page = parseInt(query.page) || PAGINATION.DEFAULT_PAGE;
+    const limit = Math.min(parseInt(query.limit) || PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
+    const skip = (page - 1) * limit;
+    const { status, wardId } = query;
 
     const filter = {};
     if (wardId) filter.wardId = wardId;
@@ -205,19 +286,14 @@ export async function getObservationQueue(officerWardId, query) {
         Observation.find(filter)
             .sort({ aiConfidence: -1, createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit))
+            .limit(limit)
             .populate('workerId', 'name fieldPoints')
             .populate('wardId', 'name wardNumber')
             .lean(),
         Observation.countDocuments(filter),
     ]);
 
-    return {
-        observations,
-        total,
-        page: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-    };
+    return { observations, total, page, totalPages: Math.ceil(total / limit) || 1 };
 }
 
 export async function reviewObservation(observationId, officerId, dto) {
@@ -265,12 +341,31 @@ export async function reviewObservation(observationId, officerId, dto) {
         observation.elevatedAt = new Date();
         observation.reviewedBy = officerId;
         observation.reviewNote = reviewNote ?? null;
-        observation.pointsAwarded = 15;
+        observation.pointsAwarded = FIELDMESH.POINTS_OBSERVATION_ELEVATED;
         await observation.save();
 
-        await User.updateOne({ _id: observation.workerId }, { $inc: { fieldPoints: 15 } });
+        await User.updateOne(
+            { _id: observation.workerId },
+            { $inc: { fieldPoints: FIELDMESH.POINTS_OBSERVATION_ELEVATED } }
+        );
+
+        await notify({
+            userId: observation.workerId,
+            type: NOTIFICATION_TYPES.FIELD_POINTS_AWARDED,
+            data: {
+                points: FIELDMESH.POINTS_OBSERVATION_ELEVATED,
+                reason: 'an elevated FieldMesh observation',
+            },
+            refModel: 'Observation',
+            refId: observation._id,
+        });
+
         await evaluateCascadeRisk(complaint);
 
+        logger.success(
+            SCOPE,
+            `Observation ${observation._id} elevated to complaint ${complaint._id}`
+        );
         return { observation, complaint };
     }
 
@@ -281,7 +376,7 @@ export async function getWardReport(wardId) {
     const ward = await Ward.findById(wardId).lean();
     if (!ward) throw ApiError.notFound('Ward');
 
-    const since30d = new Date(Date.now() - 30 * 86_400_000);
+    const since = new Date(Date.now() - WARD_HEALTH.STATS_WINDOW_DAYS * 86_400_000);
 
     const [statusBreakdown, categoryBreakdown, resolutionAgg, workerLeaderboard] =
         await Promise.all([
@@ -290,7 +385,7 @@ export async function getWardReport(wardId) {
                 { $group: { _id: '$status', count: { $sum: 1 } } },
             ]),
             Complaint.aggregate([
-                { $match: { wardId: ward._id, createdAt: { $gte: since30d } } },
+                { $match: { wardId: ward._id, createdAt: { $gte: since } } },
                 { $group: { _id: '$category', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
             ]),
@@ -300,7 +395,7 @@ export async function getWardReport(wardId) {
                         wardId: ward._id,
                         status: COMPLAINT_STATUS.RESOLVED,
                         resolvedAt: { $exists: true },
-                        createdAt: { $gte: since30d },
+                        createdAt: { $gte: since },
                     },
                 },
                 {
@@ -352,20 +447,20 @@ export async function getAvailableWorkers(wardId) {
 
     const workers = await User.find(filter).select('name phone fieldPoints assignedWard').lean();
 
+    const ACTIVE_ASSIGNMENT_STATUSES = [
+        ASSIGNMENT_STATUS.PENDING,
+        ASSIGNMENT_STATUS.ACKNOWLEDGED,
+        ASSIGNMENT_STATUS.EN_ROUTE,
+        ASSIGNMENT_STATUS.ON_SITE,
+    ];
+
     const withLoad = await Promise.all(
         workers.map(async (w) => {
-            const activeCount = await Assignment.countDocuments({
+            const activeTaskCount = await Assignment.countDocuments({
                 workerId: w._id,
-                status: {
-                    $in: [
-                        ASSIGNMENT_STATUS.PENDING,
-                        ASSIGNMENT_STATUS.ACKNOWLEDGED,
-                        ASSIGNMENT_STATUS.EN_ROUTE,
-                        ASSIGNMENT_STATUS.ON_SITE,
-                    ],
-                },
+                status: { $in: ACTIVE_ASSIGNMENT_STATUSES },
             });
-            return { ...w, activeTaskCount: activeCount };
+            return { ...w, activeTaskCount };
         })
     );
 

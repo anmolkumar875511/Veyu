@@ -1,7 +1,10 @@
 import Ward from '../models/ward.model.js';
 import Complaint from '../models/complaint.model.js';
+import { logger } from '../utils/logger.js';
+import { PULSE_GRID } from '../constants/index.js';
 
-const WINDOW_MS = 48 * 60 * 60 * 1000;
+const SCOPE = 'PulseGrid';
+const WINDOW_MS = PULSE_GRID.WINDOW_HOURS * 60 * 60 * 1000;
 
 export async function recomputeWardPulse(wardId) {
     const now = new Date();
@@ -9,14 +12,8 @@ export async function recomputeWardPulse(wardId) {
     const prev48hStart = new Date(now.getTime() - 2 * WINDOW_MS);
 
     const [complaintsLast48h, complaintsPrev48h] = await Promise.all([
-        Complaint.countDocuments({
-            wardId,
-            createdAt: { $gte: last48hStart, $lte: now },
-        }),
-        Complaint.countDocuments({
-            wardId,
-            createdAt: { $gte: prev48hStart, $lt: last48hStart },
-        }),
+        Complaint.countDocuments({ wardId, createdAt: { $gte: last48hStart, $lte: now } }),
+        Complaint.countDocuments({ wardId, createdAt: { $gte: prev48hStart, $lt: last48hStart } }),
     ]);
 
     const pulseVelocity =
@@ -47,6 +44,8 @@ export async function recomputeAllWards() {
         const updated = await recomputeWardPulse(w._id);
         if (updated) results.push(updated);
     }
+
+    logger.info(SCOPE, `Recomputed velocity for ${results.length} ward(s)`);
 
     return { updated: results.length, wards: results };
 }

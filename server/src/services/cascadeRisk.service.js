@@ -1,11 +1,10 @@
 import Complaint, { COMPLAINT_STATUS } from '../models/complaint.model.js';
+import { CASCADE_RISK } from '../constants/index.js';
 
-const CASCADE_TRIGGER_CATEGORIES = ['Water Leakage', 'Sewage'];
-const CASCADE_TARGET_CATEGORIES = ['Road Damage', 'Pothole', 'Drainage'];
-const CASCADE_RADIUS_METRES = 200;
+const { TRIGGER_CATEGORIES, TARGET_CATEGORIES, RADIUS_METRES } = CASCADE_RISK;
 
 export async function evaluateCascadeRisk(verifiedComplaint) {
-    if (!CASCADE_TRIGGER_CATEGORIES.includes(verifiedComplaint.category)) {
+    if (!TRIGGER_CATEGORIES.includes(verifiedComplaint.category)) {
         return { flaggedCount: 0, flaggedIds: [] };
     }
 
@@ -13,7 +12,7 @@ export async function evaluateCascadeRisk(verifiedComplaint) {
 
     const nearby = await Complaint.find({
         _id: { $ne: verifiedComplaint._id },
-        category: { $in: CASCADE_TARGET_CATEGORIES },
+        category: { $in: TARGET_CATEGORIES },
         status: {
             $nin: [
                 COMPLAINT_STATUS.RESOLVED,
@@ -24,7 +23,7 @@ export async function evaluateCascadeRisk(verifiedComplaint) {
         location: {
             $nearSphere: {
                 $geometry: { type: 'Point', coordinates: [lng, lat] },
-                $maxDistance: CASCADE_RADIUS_METRES,
+                $maxDistance: RADIUS_METRES,
             },
         },
     }).select('_id');

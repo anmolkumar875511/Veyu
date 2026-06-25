@@ -2,7 +2,6 @@ import { User } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/token.utils.js';
 
-// ── Register ─────────────────────────────────────────────────────────────────
 export async function registerCitizen(dto) {
     const { name, email, password, phone } = dto;
 
@@ -25,7 +24,6 @@ export async function registerCitizen(dto) {
     return { user: user.toPublicJSON(), accessToken, refreshToken };
 }
 
-// ── Login ─────────────────────────────────────────────────────────────────────
 export async function loginUser(dto) {
     const { email, password } = dto;
 
@@ -54,7 +52,6 @@ export async function loginUser(dto) {
     return { user: user.toPublicJSON(), accessToken, refreshToken };
 }
 
-// ── Refresh ───────────────────────────────────────────────────────────────────
 export async function refreshTokens(refreshToken) {
     if (!refreshToken) throw ApiError.refreshExpired();
 
@@ -80,14 +77,12 @@ export async function refreshTokens(refreshToken) {
     };
 }
 
-// ── Get current user ──────────────────────────────────────────────────────────
 export async function getMe(userId) {
     const user = await User.findById(userId).populate('assignedWard', 'name wardNumber');
     if (!user) throw ApiError.notFound('User');
     return user.toPublicJSON();
 }
 
-// ── Admin: create staff accounts ─────────────────────────────────────────────
 export async function createStaffAccount(dto) {
     const { name, email, password, role, phone, assignedWard } = dto;
 
@@ -110,7 +105,6 @@ export async function createStaffAccount(dto) {
     return { user: user.toPublicJSON() };
 }
 
-// ── Change password ───────────────────────────────────────────────────────────
 export async function changePassword(userId, dto) {
     const { currentPassword, newPassword } = dto;
 

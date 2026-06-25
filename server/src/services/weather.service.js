@@ -1,10 +1,13 @@
+import { logger } from '../utils/logger.js';
+
+const SCOPE = 'Weather';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
 export async function getRainForecast(days = 5) {
     const { OPENWEATHER_API_KEY, CITY_LAT, CITY_LON } = process.env;
 
     if (!OPENWEATHER_API_KEY || !CITY_LAT || !CITY_LON) {
-        console.warn('[Weather] Missing OPENWEATHER_API_KEY or city coordinates — skipping.');
+        logger.warn(SCOPE, 'Missing OPENWEATHER_API_KEY or city coordinates — skipping forecast.');
         return [];
     }
 
@@ -13,12 +16,11 @@ export async function getRainForecast(days = 5) {
         const res = await fetch(url);
 
         if (!res.ok) {
-            console.warn(`[Weather] API returned ${res.status} — skipping forecast.`);
+            logger.warn(SCOPE, `API returned ${res.status} — skipping forecast.`);
             return [];
         }
 
         const data = await res.json();
-
         const dailyMap = new Map();
 
         for (const entry of data.list ?? []) {
@@ -40,7 +42,7 @@ export async function getRainForecast(days = 5) {
             .slice(0, days)
             .map((d) => ({ ...d, rainMm: Math.round(d.rainMm * 10) / 10 }));
     } catch (err) {
-        console.warn('[Weather] Fetch failed:', err.message);
+        logger.warn(SCOPE, `Fetch failed: ${err.message}`);
         return [];
     }
 }
