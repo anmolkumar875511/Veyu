@@ -22,6 +22,7 @@ const MyComplaints = lazy(() => import('./pages/citizen/MyComplaints.jsx'));
 const OfficerWarRoom = lazy(() => import('./pages/officer/WarRoom.jsx'));
 const OfficerComplaintDetail = lazy(() => import('./pages/officer/ComplaintDetail.jsx'));
 const OfficerReports = lazy(() => import('./pages/officer/Reports.jsx'));
+const OfficerForecasts = lazy(() => import('./pages/officer/Forecasts.jsx'));
 
 // Field Worker
 const WorkerTasks = lazy(() => import('./pages/worker/Tasks.jsx'));
@@ -86,6 +87,7 @@ export default function AppRouter() {
                                 <Route path="/war-room" element={<OfficerWarRoom />} />
                                 <Route path="/war-room/:id" element={<OfficerComplaintDetail />} />
                                 <Route path="/reports" element={<OfficerReports />} />
+                                <Route path="/forecasts" element={<OfficerForecasts />} />
                             </Route>
                         </Route>
 

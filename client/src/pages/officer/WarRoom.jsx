@@ -164,6 +164,9 @@ export default function WarRoom() {
                     <span style={s.navRole}>War Room</span>
                 </div>
                 <div style={s.navRight}>
+                    <Link to="/forecasts" style={s.navLink}>
+                        SilentSignal
+                    </Link>
                     <Link to="/reports" style={s.navLink}>
                         Ward Reports
                     </Link>

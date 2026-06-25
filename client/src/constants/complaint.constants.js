@@ -58,3 +58,18 @@ export const STRESS_BAND_META = {
     critical: { label: 'Critical', color: '#f97316' },
     emergency: { label: 'Emergency', color: '#ef4444' },
 };
+
+// ── SilentSignal forecast metadata ───────────────────────────────────────────
+export const FORECAST_TRIGGER_META = {
+    seasonal: { label: 'Seasonal Pattern', icon: '📅', color: '#a78bfa' },
+    weather: { label: 'Weather Forecast', icon: '🌧️', color: '#3b82f6' },
+    velocity: { label: 'Velocity Spike', icon: '📈', color: '#f59e0b' },
+    combined: { label: 'Combined Signal', icon: '⚡', color: '#ef4444' },
+};
+
+export const FORECAST_STATUS_META = {
+    active: { label: 'Active', color: '#f59e0b' },
+    acknowledged: { label: 'Acknowledged', color: '#3b82f6' },
+    confirmed: { label: 'Confirmed', color: '#22c55e' },
+    expired: { label: 'Expired', color: '#64748b' },
+};
