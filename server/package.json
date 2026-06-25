@@ -1,10 +1,11 @@
 {
     "name": "server",
     "version": "1.0.0",
-    "description": "Nagarik API — City Intelligence Platform",
+    "description": "Veyu API — City Intelligence Platform",
     "author": "Anmol Kumar",
     "type": "module",
     "main": "index.js",
+    "license": "MIT",
     "scripts": {
         "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
         "start": "node server.js",
@@ -33,13 +34,5 @@
         "multer": "^2.2.0",
         "multer-storage-cloudinary": "^4.0.0",
         "node-cron": "^4.5.0"
-    },
-    "keywords": [
-        "nagarik",
-        "civic",
-        "mern",
-        "mongodb",
-        "express"
-    ],
-    "license": "MIT"
+    }
 }
