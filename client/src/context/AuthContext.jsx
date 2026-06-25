@@ -1,6 +1,16 @@
+// src/context/AuthContext.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth state machine via useReducer.
+// Session event key updated: 'nagarik:session-expired' → 'veyu:session-expired'
+// Must match the constant in api/axios.instance.js.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
 import { loginApi, logoutApi, refreshApi, registerApi, parseAuthError } from '../api/auth.api.js';
 import { setAccessToken, clearAccessToken } from '../api/tokenStore.js';
+
+// Shared with axios.instance.js — keep in sync
+export const SESSION_EXPIRED_EVENT = 'veyu:session-expired';
 
 const initialState = {
     user: null,
@@ -46,6 +56,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
     const [state, dispatch] = useReducer(authReducer, initialState);
 
+    // Restore session on mount via httpOnly refresh cookie
     useEffect(() => {
         async function restoreSession() {
             try {
@@ -59,13 +70,14 @@ export function AuthProvider({ children }) {
         restoreSession();
     }, []);
 
+    // Listen for session-expired events fired by the axios interceptor
     useEffect(() => {
         function handleSessionExpired() {
             clearAccessToken();
             dispatch({ type: 'AUTH_LOGOUT' });
         }
-        window.addEventListener('nagarik:session-expired', handleSessionExpired);
-        return () => window.removeEventListener('nagarik:session-expired', handleSessionExpired);
+        window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+        return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
     }, []);
 
     const login = useCallback(async (email, password) => {
@@ -105,9 +117,7 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
-    const clearError = useCallback(() => {
-        dispatch({ type: 'CLEAR_ERROR' });
-    }, []);
+    const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), []);
 
     const value = {
         user: state.user,

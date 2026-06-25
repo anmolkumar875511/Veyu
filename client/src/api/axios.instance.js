@@ -1,7 +1,16 @@
+// src/api/axios.instance.js
+// ─────────────────────────────────────────────────────────────────────────────
+// Axios client with silent token refresh on TOKEN_EXPIRED 401.
+// Session event updated: 'nagarik:session-expired' → 'veyu:session-expired'
+// ─────────────────────────────────────────────────────────────────────────────
+
 import axios from 'axios';
 import { getAccessToken, setAccessToken, clearAccessToken } from './tokenStore.js';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+// Must match SESSION_EXPIRED_EVENT in context/AuthContext.jsx
+const SESSION_EXPIRED_EVENT = 'veyu:session-expired';
 
 export const apiClient = axios.create({
     baseURL: `${BASE_URL}/api`,
@@ -10,7 +19,7 @@ export const apiClient = axios.create({
     timeout: 15_000,
 });
 
-// ── Request interceptor — inject access token ─────────────────────────────────
+// ── Request interceptor — attach access token ─────────────────────────────────
 apiClient.interceptors.request.use(
     (config) => {
         const token = getAccessToken();
@@ -20,8 +29,7 @@ apiClient.interceptors.request.use(
     (err) => Promise.reject(err)
 );
 
-// ── Response interceptor — silent refresh on 401 ─────────────────────────────
-
+// ── Response interceptor — silent refresh on TOKEN_EXPIRED ───────────────────
 let isRefreshing = false;
 let pendingQueue = [];
 
@@ -37,6 +45,7 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // Only intercept TOKEN_EXPIRED — not UNAUTHORIZED (wrong password etc.)
         const isTokenExpired =
             error.response?.status === 401 &&
             error.response?.data?.code === 'TOKEN_EXPIRED' &&
@@ -70,7 +79,7 @@ apiClient.interceptors.response.use(
         } catch (refreshError) {
             clearAccessToken();
             processPendingQueue(refreshError);
-            window.dispatchEvent(new CustomEvent('nagarik:session-expired'));
+            window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
             return Promise.reject(refreshError);
         } finally {
             isRefreshing = false;
