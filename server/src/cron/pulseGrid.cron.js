@@ -1,17 +1,20 @@
 import cron from 'node-cron';
 import { recomputeAllWards } from '../services/pulseGrid.service.js';
+import { logger } from '../utils/logger.js';
+import { PULSE_GRID } from '../constants/index.js';
 
 export function startPulseGridCron() {
-    cron.schedule('0 * * * *', async () => {
-        const startedAt = Date.now();
+    cron.schedule(PULSE_GRID.RECOMPUTE_CRON, async () => {
+        const t = Date.now();
         try {
             const result = await recomputeAllWards();
-            const ms = Date.now() - startedAt;
-            console.log(`[PulseGrid] ✓  Recomputed ${result.updated} wards in ${ms}ms`);
+            logger.success(
+                'PulseGrid',
+                `Recomputed ${result.updated} wards in ${Date.now() - t}ms`
+            );
         } catch (err) {
-            console.error('[PulseGrid] ✗  Recompute failed:', err.message);
+            logger.error('PulseGrid', 'Hourly recompute failed', err);
         }
     });
-
-    console.log('[PulseGrid] ✓  Hourly cron job scheduled (runs at :00 every hour).');
+    logger.info('PulseGrid', `Cron scheduled (${PULSE_GRID.RECOMPUTE_CRON})`);
 }

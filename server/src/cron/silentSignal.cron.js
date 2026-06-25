@@ -1,21 +1,23 @@
 import cron from 'node-cron';
 import { generateForecasts, expireAndScoreForecasts } from '../services/silentSignal.service.js';
+import { logger } from '../utils/logger.js';
+import { SILENT_SIGNAL } from '../constants/index.js';
 
 export function startSilentSignalCron() {
-    cron.schedule('0 2 * * *', async () => {
-        const startedAt = Date.now();
+    cron.schedule(SILENT_SIGNAL.DAILY_CRON, async () => {
+        const t = Date.now();
         try {
-            const genResult = await generateForecasts();
-            const scoreResult = await expireAndScoreForecasts();
-            const ms = Date.now() - startedAt;
-            console.log(
-                `[SilentSignal] ✓  Generated ${genResult.created} forecasts, ` +
-                    `scored ${scoreResult.scored} (${scoreResult.confirmed} confirmed, ${scoreResult.expired} expired) in ${ms}ms`
+            const [gen, score] = await Promise.all([
+                generateForecasts(),
+                expireAndScoreForecasts(),
+            ]);
+            logger.success(
+                'SilentSignal',
+                `Generated ${gen.created} forecast(s), scored ${score.scored} in ${Date.now() - t}ms`
             );
         } catch (err) {
-            console.error('[SilentSignal] ✗  Daily job failed:', err.message);
+            logger.error('SilentSignal', 'Daily job failed', err);
         }
     });
-
-    console.log('[SilentSignal] ✓  Daily cron job scheduled (runs at 02:00 every day).');
+    logger.info('SilentSignal', `Cron scheduled (${SILENT_SIGNAL.DAILY_CRON})`);
 }
