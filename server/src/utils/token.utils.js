@@ -11,8 +11,8 @@ export function signAccessToken(user) {
         JWT_CONFIG.ACCESS.secret,
         {
             expiresIn: JWT_CONFIG.ACCESS.expiresIn,
-            issuer: 'nagarik-api',
-            audience: 'nagarik-client',
+            issuer: 'veyu-api',
+            audience: 'veyu-client',
         }
     );
 }
@@ -20,22 +20,22 @@ export function signAccessToken(user) {
 export function signRefreshToken(user) {
     return jwt.sign({ sub: user._id.toString() }, JWT_CONFIG.REFRESH.secret, {
         expiresIn: JWT_CONFIG.REFRESH.expiresIn,
-        issuer: 'nagarik-api',
-        audience: 'nagarik-client',
+        issuer: 'veyu-api',
+        audience: 'veyu-client',
     });
 }
 
 export function verifyAccessToken(token) {
     return jwt.verify(token, JWT_CONFIG.ACCESS.secret, {
-        issuer: 'nagarik-api',
-        audience: 'nagarik-client',
+        issuer: 'veyu-api',
+        audience: 'veyu-client',
     });
 }
 
 export function verifyRefreshToken(token) {
     return jwt.verify(token, JWT_CONFIG.REFRESH.secret, {
-        issuer: 'nagarik-api',
-        audience: 'nagarik-client',
+        issuer: 'veyu-api',
+        audience: 'veyu-client',
     });
 }
 
