@@ -89,21 +89,16 @@ const userSchema = new Schema(
     }
 );
 
-// ── Indexes ──────────────────────────────────────────────────────────────────
 // userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ role: 1 });
 userSchema.index({ assignedWard: 1 });
 
-// ── Hooks ────────────────────────────────────────────────────────────────────
-// Hash password before saving
 userSchema.pre('save', async function () {
-    if (!this.isModified('password')) return;
-
+    if (!this.isModified('password')) return next();
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
 });
 
-// ── Instance Methods ─────────────────────────────────────────────────────────
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };
@@ -115,7 +110,6 @@ userSchema.methods.toPublicJSON = function () {
     return obj;
 };
 
-// ── Static Methods ────────────────────────────────────────────────────────────
 userSchema.statics.findByEmail = function (email) {
     return this.findOne({ email: email.toLowerCase() }).select('+password');
 };
