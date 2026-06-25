@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { logger } from '../utils/logger.js';
 
 const MONGOOSE_OPTIONS = {
     serverSelectionTimeoutMS: 5000,
@@ -15,11 +16,12 @@ const INITIAL_RETRY_DELAY_MS = 1000;
 let retryCount = 0;
 let isConnected = false;
 
+const SCOPE = 'DB';
 const log = {
-    info: (msg) => console.log(`[DB] ℹ  ${msg}`),
-    success: (msg) => console.log(`[DB] ✓  ${msg}`),
-    warn: (msg) => console.warn(`[DB] ⚠  ${msg}`),
-    error: (msg, err) => console.error(`[DB] ✗  ${msg}`, err ?? ''),
+    info: (msg) => logger.info(SCOPE, msg),
+    success: (msg) => logger.success(SCOPE, msg),
+    warn: (msg) => logger.warn(SCOPE, msg),
+    error: (msg, err) => logger.error(SCOPE, msg, err),
 };
 
 function registerConnectionEvents() {

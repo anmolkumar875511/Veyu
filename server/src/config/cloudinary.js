@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
+import { logger } from '../utils/logger.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -71,7 +72,7 @@ export async function deleteCloudinaryImage(publicId) {
     try {
         await cloudinary.uploader.destroy(publicId);
     } catch (err) {
-        console.warn('[Cloudinary] Failed to delete asset:', publicId, err.message);
+        logger.warn('Cloudinary', `Failed to delete asset ${publicId}: ${err.message}`);
     }
 }
 
