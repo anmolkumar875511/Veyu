@@ -56,7 +56,6 @@ router.post(
 );
 
 router.post('/pulse/recompute', protect, requireRole('admin'), WardController.recomputeAllPulse);
-
 router.post(
     '/stats/recompute-all',
     protect,

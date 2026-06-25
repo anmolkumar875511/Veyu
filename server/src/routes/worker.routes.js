@@ -11,14 +11,15 @@ import {
     validateMongoIdParam,
     validate,
 } from '../validators/worker.validators.js';
+import { RATE_LIMITS } from '../constants/index.js';
 
 const router = Router();
 
 router.use(protect, requireRole('worker'));
 
 const observationLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
+    windowMs: RATE_LIMITS.OBSERVATION_WINDOW_MS,
+    max: RATE_LIMITS.OBSERVATION_MAX,
     message: {
         success: false,
         code: 'TOO_MANY_REQUESTS',
@@ -29,9 +30,7 @@ const observationLimiter = rateLimit({
 });
 
 router.get('/tasks', validateTaskQuery, validate, WorkerController.getMyTasks);
-
 router.get('/tasks/:id', validateMongoIdParam('id'), validate, WorkerController.getTaskDetail);
-
 router.patch(
     '/tasks/:id/advance',
     validateMongoIdParam('id'),
@@ -58,7 +57,6 @@ router.post(
 );
 
 router.get('/observations', validateObservationQuery, validate, WorkerController.getMyObservations);
-
 router.get('/summary', WorkerController.getWorkerSummary);
 
 export default router;

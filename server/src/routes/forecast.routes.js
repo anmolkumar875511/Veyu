@@ -12,16 +12,13 @@ const router = Router();
 router.use(protect, requireRole('officer', 'admin'));
 
 router.get('/', validateForecastQuery, validate, ForecastController.getActiveForecasts);
-
+router.get('/accuracy', ForecastController.getForecastAccuracy);
 router.patch(
     '/:id/acknowledge',
     validateMongoIdParam('id'),
     validate,
     ForecastController.acknowledgeForecast
 );
-
-router.get('/accuracy', ForecastController.getForecastAccuracy);
-
 router.post('/generate', requireRole('admin'), ForecastController.generateForecasts);
 router.post('/expire-and-score', requireRole('admin'), ForecastController.expireAndScoreForecasts);
 

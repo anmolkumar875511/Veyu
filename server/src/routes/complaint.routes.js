@@ -9,12 +9,13 @@ import {
     validateMongoId,
     validate,
 } from '../validators/complaint.validators.js';
+import { RATE_LIMITS } from '../constants/index.js';
 
 const router = Router();
 
 const submitLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
+    windowMs: RATE_LIMITS.COMPLAINT_SUBMIT_WINDOW_MS,
+    max: RATE_LIMITS.COMPLAINT_SUBMIT_MAX,
     message: {
         success: false,
         code: 'TOO_MANY_REQUESTS',

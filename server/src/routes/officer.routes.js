@@ -10,30 +10,12 @@ import {
     validateMongoIdParam,
     validate,
 } from '../validators/officer.validators.js';
-import User from '../models/user.model.js';
 
 const router = Router();
 
 router.use(protect, requireRole('officer', 'admin'));
 
-async function attachOfficerWard(req, res, next) {
-    if (req.user.role !== 'officer') return next();
-    try {
-        const user = await User.findById(req.user.id).select('assignedWard');
-        req.officerWardId = user?.assignedWard ?? null;
-        next();
-    } catch (err) {
-        next(err);
-    }
-}
-
-router.get(
-    '/queue',
-    attachOfficerWard,
-    validateTriageQuery,
-    validate,
-    OfficerController.getTriageQueue
-);
+router.get('/queue', validateTriageQuery, validate, OfficerController.getTriageQueue);
 
 router.get(
     '/complaints/:id',
@@ -66,7 +48,7 @@ router.post(
     OfficerController.reassignWorker
 );
 
-router.get('/observations', attachOfficerWard, OfficerController.getObservationQueue);
+router.get('/observations', OfficerController.getObservationQueue);
 
 router.patch(
     '/observations/:id/review',
