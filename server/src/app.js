@@ -10,6 +10,7 @@ import complaintRoutes from './routes/complaint.routes.js';
 import officerRoutes from './routes/officer.routes.js';
 import workerRoutes from './routes/worker.routes.js';
 import wardRoutes from './routes/ward.routes.js';
+import forecastRoutes from './routes/forecast.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.middleware.js';
 
 const ALLOWED_ORIGINS = [
@@ -61,6 +62,7 @@ export function createApp() {
     app.use('/api/officer', officerRoutes);
     app.use('/api/worker', workerRoutes);
     app.use('/api/wards', wardRoutes);
+    app.use('/api/forecasts', forecastRoutes);
 
     app.use(notFoundHandler);
     app.use(errorHandler);

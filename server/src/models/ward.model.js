@@ -42,12 +42,16 @@ const wardSchema = new Schema(
             type: {
                 type: String,
                 enum: ['Polygon'],
-                required: function() { return this.boundary && this.boundary.coordinates; }
+                required: function () {
+                    return this.boundary && this.boundary.coordinates;
+                },
             },
             coordinates: {
                 type: [[[Number]]],
-                required: function() { return this.boundary && this.boundary.type; }
-            }
+                required: function () {
+                    return this.boundary && this.boundary.type;
+                },
+            },
         },
 
         pulseVelocity: {

@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { connectDB, disconnectDB, getDBHealth } from './config/db.js';
 import { validateJwtConfig } from './config/jwt.config.js';
 import { startPulseGridCron } from './cron/pulseGrid.cron.js';
+import { startSilentSignalCron } from './cron/silentSignal.cron.js';
 
 function validateEnv() {
     const required = [
@@ -95,6 +96,7 @@ async function main() {
     await connectDB();
 
     startPulseGridCron();
+    startSilentSignalCron();
 
     const app = createApp();
     const httpServer = createServer(app);
