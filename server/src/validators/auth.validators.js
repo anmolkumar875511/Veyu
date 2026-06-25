@@ -16,7 +16,7 @@ const passwordField = (fieldName = 'password') =>
         .isLength({ min: 6 })
         .withMessage('Password must be at least 6 characters.')
         .isLength({ max: 72 })
-        .withMessage('Password cannot exceed 72 characters.'); // bcrypt hard limit
+        .withMessage('Password cannot exceed 72 characters.');
 
 const nameField = body('name')
     .trim()
