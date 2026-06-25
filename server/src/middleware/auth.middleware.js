@@ -10,6 +10,7 @@ export function protect(req, res, next) {
 
     try {
         const payload = verifyAccessToken(token);
+
         req.user = {
             id: payload.sub,
             role: payload.role,
@@ -61,7 +62,6 @@ export function requireOwnerOrRole(getOwnerId, ...roles) {
         try {
             if (!req.user) return next(ApiError.unauthorized());
 
-            // Elevated roles bypass ownership check
             if (roles.includes(req.user.role)) return next();
 
             const ownerId = await getOwnerId(req);

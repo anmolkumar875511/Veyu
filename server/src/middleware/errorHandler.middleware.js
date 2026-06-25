@@ -1,10 +1,11 @@
 import { ApiError } from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 
 export function errorHandler(err, req, res, next) {
     if (err.isOperational) {
-        console.warn(`[${err.statusCode}] ${err.code ?? 'ERROR'}: ${err.message}`);
+        logger.warn('HTTP', `[${err.statusCode}] ${err.code ?? 'ERROR'}: ${err.message}`);
     } else {
-        console.error('Unexpected error:', err);
+        logger.error('HTTP', 'Unexpected error', err);
     }
 
     if (err.code === 11000) {
