@@ -11,6 +11,9 @@ import officerRoutes from './routes/officer.routes.js';
 import workerRoutes from './routes/worker.routes.js';
 import wardRoutes from './routes/ward.routes.js';
 import forecastRoutes from './routes/forecast.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import userRoutes from './routes/user.routes.js';
+
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.middleware.js';
 
 const ALLOWED_ORIGINS = [
@@ -50,19 +53,20 @@ export function createApp() {
     app.get('/health', (_req, res) => {
         res.status(200).json({
             success: true,
-            service: 'nagarik-api',
+            service: 'veyu-api',
             environment: process.env.NODE_ENV ?? 'development',
             timestamp: new Date().toISOString(),
         });
     });
 
     app.use('/api/auth', authRoutes);
-
     app.use('/api/complaints', complaintRoutes);
     app.use('/api/officer', officerRoutes);
     app.use('/api/worker', workerRoutes);
     app.use('/api/wards', wardRoutes);
     app.use('/api/forecasts', forecastRoutes);
+    app.use('/api/notifications', notificationRoutes);
+    app.use('/api/users', userRoutes);
 
     app.use(notFoundHandler);
     app.use(errorHandler);
