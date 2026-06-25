@@ -1,66 +1,37 @@
+import { asyncHandler } from '../utils/asyncHandler.js';
 import * as ComplaintService from '../services/complaint.service.js';
 
-export async function submitComplaint(req, res, next) {
-    try {
-        const result = await ComplaintService.submitComplaint(req.user.id, req.body, req.file);
+export const submitComplaint = asyncHandler(async (req, res) => {
+    const result = await ComplaintService.submitComplaint(req.user.id, req.body, req.file);
+    res.status(result.isDuplicate ? 200 : 201).json({ success: true, data: result });
+});
 
-        const statusCode = result.isDuplicate ? 200 : 201;
-        res.status(statusCode).json({ success: true, data: result });
-    } catch (err) {
-        next(err);
-    }
-}
+export const getMyComplaints = asyncHandler(async (req, res) => {
+    const data = await ComplaintService.getMyComplaints(req.user.id, req.query);
+    res.status(200).json({ success: true, data });
+});
 
-export async function getMyComplaints(req, res, next) {
-    try {
-        const result = await ComplaintService.getMyComplaints(req.user.id, req.query);
-        res.status(200).json({ success: true, data: result });
-    } catch (err) {
-        next(err);
-    }
-}
+export const getPublicStats = asyncHandler(async (req, res) => {
+    const data = await ComplaintService.getPublicStats();
+    res.status(200).json({ success: true, data });
+});
 
-export async function getPublicStats(req, res, next) {
-    try {
-        const data = await ComplaintService.getPublicStats();
-        res.status(200).json({ success: true, data });
-    } catch (err) {
-        next(err);
-    }
-}
+export const getPublicMapComplaints = asyncHandler(async (req, res) => {
+    const data = await ComplaintService.getPublicMapComplaints(req.query);
+    res.status(200).json({ success: true, data });
+});
 
-export async function getPublicMapComplaints(req, res, next) {
-    try {
-        const data = await ComplaintService.getPublicMapComplaints(req.query);
-        res.status(200).json({ success: true, data });
-    } catch (err) {
-        next(err);
-    }
-}
+export const getComplaintById = asyncHandler(async (req, res) => {
+    const data = await ComplaintService.getComplaintById(req.params.id, req.user?.id ?? null);
+    res.status(200).json({ success: true, data });
+});
 
-export async function getComplaintById(req, res, next) {
-    try {
-        const data = await ComplaintService.getComplaintById(req.params.id, req.user?.id ?? null);
-        res.status(200).json({ success: true, data });
-    } catch (err) {
-        next(err);
-    }
-}
+export const toggleUpvote = asyncHandler(async (req, res) => {
+    const data = await ComplaintService.toggleUpvote(req.params.id, req.user.id);
+    res.status(200).json({ success: true, data });
+});
 
-export async function toggleUpvote(req, res, next) {
-    try {
-        const data = await ComplaintService.toggleUpvote(req.params.id, req.user.id);
-        res.status(200).json({ success: true, data });
-    } catch (err) {
-        next(err);
-    }
-}
-
-export async function deleteComplaint(req, res, next) {
-    try {
-        await ComplaintService.deleteComplaint(req.params.id, req.user.id);
-        res.status(200).json({ success: true, message: 'Complaint deleted.' });
-    } catch (err) {
-        next(err);
-    }
-}
+export const deleteComplaint = asyncHandler(async (req, res) => {
+    await ComplaintService.deleteComplaint(req.params.id, req.user.id);
+    res.status(200).json({ success: true, message: 'Complaint deleted.' });
+});
