@@ -112,10 +112,8 @@ export async function completeTask(assignmentId, workerId, dto, file) {
 
     const complaint = await Complaint.findById(assignment.complaintId);
     if (complaint) {
-        complaint.status = COMPLAINT_STATUS.RESOLVED;
-        complaint.resolvedAt = new Date();
+        complaint.transitionStatus(COMPLAINT_STATUS.RESOLVED, workerId, 'Resolved by field worker');
         complaint.resolutionImageUrl = file.path;
-        complaint._statusChangedBy = workerId;
         await complaint.save();
 
         await notify({
@@ -277,7 +275,7 @@ export async function getMyObservations(workerId, query) {
 }
 
 export async function getWorkerSummary(workerId) {
-    const ACTIVE_ASSIGNMENT_STATUSES = [
+    const ACTIVE = [
         ASSIGNMENT_STATUS.PENDING,
         ASSIGNMENT_STATUS.ACKNOWLEDGED,
         ASSIGNMENT_STATUS.EN_ROUTE,
@@ -289,7 +287,7 @@ export async function getWorkerSummary(workerId) {
             .select('name fieldPoints assignedWard')
             .populate('assignedWard', 'name wardNumber'),
         Assignment.countDocuments({ workerId, status: ASSIGNMENT_STATUS.COMPLETED }),
-        Assignment.countDocuments({ workerId, status: { $in: ACTIVE_ASSIGNMENT_STATUSES } }),
+        Assignment.countDocuments({ workerId, status: { $in: ACTIVE } }),
         Observation.countDocuments({ workerId }),
     ]);
 
