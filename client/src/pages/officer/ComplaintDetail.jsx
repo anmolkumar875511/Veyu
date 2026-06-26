@@ -1,15 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // src/pages/officer/ComplaintDetail.jsx
-//
-// Officer's single complaint view. Actions:
-//   - Verify / Reject submitted complaints
-//   - Dispatch to a worker (loads available workers list)
-//   - Watch live status + cascade risk
-//   - View assignment progress once dispatched
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
     getOfficerComplaintDetailApi,
     updateComplaintStatusApi,
@@ -18,20 +10,95 @@ import {
     parseOfficerError,
 } from '../../api/officer.api.js';
 import {
+    PageShell,
+    NavBar,
+    BackLink,
+    NavTitle,
+    FullscreenState,
+    StatusBadge,
+    SectionLabel,
+    MetaGrid,
+    ErrorBanner,
+    Textarea,
+    Select,
+    BtnPrimary,
+    BtnDanger,
+    BtnDangerSolid,
+    BtnGhost,
+    Card,
+} from '../../components/officer/OfficerShell.jsx';
+import { color, font, space, radius, shadow, mk } from '../../theme/index.js';
+import {
     COMPLAINT_STATUS_LABELS,
     ASSIGNMENT_STATUS_LABELS,
+    STATUS_META,
 } from '../../constants/complaint.constants.js';
 
-const STATUS_COLORS = {
-    submitted: '#94a3b8',
-    verified: '#3b82f6',
-    assigned: '#a78bfa',
-    in_progress: '#f59e0b',
-    resolved: '#22c55e',
-    rejected: '#ef4444',
-    duplicate: '#64748b',
-};
+// ── Status history ────────────────────────────────────────────────────────────
+function StatusHistory({ history }) {
+    if (!history?.length) return null;
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+            <SectionLabel>History</SectionLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+                {[...history].reverse().map((h, i) => {
+                    const m = STATUS_META[h.status] ?? STATUS_META.submitted;
+                    return (
+                        <div
+                            key={i}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: space[3] }}
+                        >
+                            <span
+                                style={{
+                                    width: '0.5rem',
+                                    height: '0.5rem',
+                                    borderRadius: radius.full,
+                                    background: m.color,
+                                    marginTop: '0.3rem',
+                                    flexShrink: 0,
+                                }}
+                            />
+                            <div>
+                                <span
+                                    style={{
+                                        fontSize: font.size.sm,
+                                        fontWeight: font.weight.semibold,
+                                        color: color.textPrimary,
+                                    }}
+                                >
+                                    {COMPLAINT_STATUS_LABELS[h.status]}
+                                </span>
+                                {h.note && (
+                                    <span
+                                        style={{
+                                            fontSize: font.size.sm,
+                                            color: color.textSecondary,
+                                        }}
+                                    >
+                                        {' '}
+                                        — {h.note}
+                                    </span>
+                                )}
+                                <span
+                                    style={{
+                                        display: 'block',
+                                        fontSize: font.size.xs,
+                                        color: color.textMuted,
+                                        marginTop: '0.1rem',
+                                    }}
+                                >
+                                    {new Date(h.changedAt).toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
 
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function OfficerComplaintDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -43,14 +110,12 @@ export default function OfficerComplaintDetail() {
     const [actionErr, setActionErr] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
-    // Dispatch panel state
     const [showDispatch, setShowDispatch] = useState(false);
     const [workers, setWorkers] = useState([]);
     const [workersLoading, setWorkersLoading] = useState(false);
     const [selectedWorker, setSelectedWorker] = useState('');
     const [instructions, setInstructions] = useState('');
 
-    // Status note state
     const [rejectNote, setRejectNote] = useState('');
     const [showReject, setShowReject] = useState(false);
 
@@ -77,9 +142,6 @@ export default function OfficerComplaintDetail() {
         try {
             const data = await updateComplaintStatusApi(id, { status: 'verified' });
             setComplaint(data.complaint);
-            if (data.cascadeResult?.flaggedCount > 0) {
-                setActionErr(null); // not an error — show success message instead
-            }
         } catch (e) {
             setActionErr(parseOfficerError(e));
         } finally {
@@ -135,7 +197,7 @@ export default function OfficerComplaintDetail() {
             });
             setComplaint(data.complaint);
             setShowDispatch(false);
-            fetchDetail(); // reload to get the new assignment object
+            fetchDetail();
         } catch (e) {
             setActionErr(parseOfficerError(e));
         } finally {
@@ -143,44 +205,73 @@ export default function OfficerComplaintDetail() {
         }
     }
 
-    if (loading) {
-        return <div style={s.loadingPage}>Loading…</div>;
-    }
-
+    if (loading) return <FullscreenState>Loading…</FullscreenState>;
     if (error || !complaint) {
         return (
-            <div style={s.loadingPage}>
+            <FullscreenState>
                 <p>{error ?? 'Complaint not found.'}</p>
-                <Link to="/war-room" style={s.backLink}>
-                    ← Back to war room
-                </Link>
-            </div>
+                <BackLink to="/war-room">← Back to war room</BackLink>
+            </FullscreenState>
         );
     }
 
-    const statusColor = STATUS_COLORS[complaint.status] ?? '#94a3b8';
+    const statusColor = STATUS_META[complaint.status]?.color ?? color.textSecondary;
 
     return (
-        <div style={s.page}>
-            <header style={s.nav}>
-                <Link to="/war-room" style={s.backLink}>
-                    ← War Room
-                </Link>
-                <span style={s.navTitle}>Complaint Detail</span>
-                <span />
-            </header>
+        <PageShell>
+            <NavBar
+                left={<BackLink to="/war-room">← War Room</BackLink>}
+                right={<NavTitle>Complaint Detail</NavTitle>}
+            />
 
-            <main style={s.main}>
-                <div style={s.grid}>
-                    {/* ── Left: complaint info ─────────────────────────────────────── */}
-                    <div style={s.leftCol}>
-                        <img src={complaint.imageUrl} alt={complaint.title} style={s.image} />
+            <main
+                style={{
+                    maxWidth: '1000px',
+                    margin: '0 auto',
+                    padding: `${space[6]} ${space[6]} ${space[16]}`,
+                }}
+            >
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: space[6] }}>
+                    {/* ── Left: info ─────────────────────────────────────────── */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
+                        <img
+                            src={complaint.imageUrl}
+                            alt={complaint.title}
+                            style={{
+                                width: '100%',
+                                height: '320px',
+                                objectFit: 'cover',
+                                borderRadius: radius.xl,
+                                border: `1px solid ${color.borderDefault}`,
+                            }}
+                        />
 
-                        <div style={s.titleRow}>
-                            <h1 style={s.title}>{complaint.title}</h1>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                justifyContent: 'space-between',
+                                gap: space[4],
+                            }}
+                        >
+                            <h1
+                                style={{
+                                    fontSize: '1.3rem',
+                                    fontWeight: font.weight.extrabold,
+                                    color: color.textPrimary,
+                                    margin: 0,
+                                    lineHeight: 1.3,
+                                }}
+                            >
+                                {complaint.title}
+                            </h1>
                             <span
                                 style={{
-                                    ...s.statusBadge,
+                                    fontSize: font.size.xs,
+                                    fontWeight: font.weight.bold,
+                                    padding: '0.3rem 0.75rem',
+                                    borderRadius: radius.full,
+                                    whiteSpace: 'nowrap',
                                     color: statusColor,
                                     background: `${statusColor}1a`,
                                 }}
@@ -190,11 +281,25 @@ export default function OfficerComplaintDetail() {
                         </div>
 
                         {complaint.cascadeRisk && (
-                            <div style={s.cascadeBanner}>
+                            <div
+                                style={{
+                                    background: '#7c2d1215',
+                                    border: '1px solid #f9731644',
+                                    borderRadius: radius.md,
+                                    padding: `${space[3]} ${space[4]}`,
+                                    fontSize: font.size.sm,
+                                    color: '#fb923c',
+                                }}
+                            >
                                 ⚡ Cascade risk — a nearby water/sewage complaint was recently
                                 verified.
                                 {complaint.cascadeSource && (
-                                    <span style={s.cascadeSourceText}>
+                                    <span
+                                        style={{
+                                            color: '#fdba74',
+                                            fontWeight: font.weight.semibold,
+                                        }}
+                                    >
                                         {' '}
                                         Source: {complaint.cascadeSource.title}
                                     </span>
@@ -203,456 +308,277 @@ export default function OfficerComplaintDetail() {
                         )}
 
                         {complaint.duplicateOf && (
-                            <div style={s.dupBanner}>
+                            <div
+                                style={{
+                                    background: color.bgSurface,
+                                    border: `1px solid ${color.borderDefault}`,
+                                    borderRadius: radius.md,
+                                    padding: `${space[3]} ${space[4]}`,
+                                    fontSize: font.size.sm,
+                                    color: color.textSecondary,
+                                }}
+                            >
                                 🔁 Marked as duplicate of: {complaint.duplicateOf.title}
                             </div>
                         )}
 
-                        <p style={s.description}>{complaint.description}</p>
+                        <p
+                            style={{
+                                fontSize: font.size.base,
+                                color: color.textSecondary,
+                                lineHeight: 1.7,
+                                margin: 0,
+                            }}
+                        >
+                            {complaint.description}
+                        </p>
 
-                        <div style={s.metaGrid}>
-                            <div style={s.metaItem}>
-                                <span style={s.metaLabel}>Category</span>
-                                <span style={s.metaValue}>{complaint.category}</span>
-                            </div>
-                            <div style={s.metaItem}>
-                                <span style={s.metaLabel}>Severity</span>
-                                <span style={s.metaValue}>{complaint.severity ?? '—'}/10</span>
-                            </div>
-                            <div style={s.metaItem}>
-                                <span style={s.metaLabel}>Ward</span>
-                                <span style={s.metaValue}>{complaint.wardId?.name ?? '—'}</span>
-                            </div>
-                            <div style={s.metaItem}>
-                                <span style={s.metaLabel}>AI Confidence</span>
-                                <span style={s.metaValue}>
-                                    {complaint.aiConfidence
+                        <MetaGrid
+                            items={[
+                                { label: 'Category', value: complaint.category },
+                                { label: 'Severity', value: `${complaint.severity ?? '—'}/10` },
+                                { label: 'Ward', value: complaint.wardId?.name },
+                                {
+                                    label: 'AI Confidence',
+                                    value: complaint.aiConfidence
                                         ? `${Math.round(complaint.aiConfidence * 100)}%`
-                                        : '—'}
-                                </span>
-                            </div>
-                            <div style={s.metaItem}>
-                                <span style={s.metaLabel}>Reported by</span>
-                                <span style={s.metaValue}>{complaint.createdBy?.name ?? '—'}</span>
-                            </div>
-                            <div style={s.metaItem}>
-                                <span style={s.metaLabel}>Upvotes</span>
-                                <span style={s.metaValue}>▲ {complaint.upvotes}</span>
-                            </div>
-                        </div>
+                                        : '—',
+                                },
+                                { label: 'Reported by', value: complaint.createdBy?.name },
+                                { label: 'Upvotes', value: `▲ ${complaint.upvotes}` },
+                            ]}
+                        />
 
-                        {complaint.address && <p style={s.address}>📍 {complaint.address}</p>}
-
-                        {/* Status timeline */}
-                        {complaint.statusHistory?.length > 0 && (
-                            <div style={s.historySection}>
-                                <span style={s.sectionLabel}>History</span>
-                                <div style={s.historyList}>
-                                    {complaint.statusHistory
-                                        .slice()
-                                        .reverse()
-                                        .map((h, i) => (
-                                            <div key={i} style={s.historyItem}>
-                                                <span
-                                                    style={{
-                                                        ...s.historyDot,
-                                                        background: STATUS_COLORS[h.status],
-                                                    }}
-                                                />
-                                                <div>
-                                                    <span style={s.historyStatus}>
-                                                        {COMPLAINT_STATUS_LABELS[h.status]}
-                                                    </span>
-                                                    {h.note && (
-                                                        <span style={s.historyNote}>
-                                                            {' '}
-                                                            — {h.note}
-                                                        </span>
-                                                    )}
-                                                    <span style={s.historyDate}>
-                                                        {new Date(h.changedAt).toLocaleString(
-                                                            'en-IN'
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                </div>
-                            </div>
+                        {complaint.address && (
+                            <p
+                                style={{
+                                    fontSize: font.size.sm,
+                                    color: color.textMuted,
+                                    margin: 0,
+                                }}
+                            >
+                                📍 {complaint.address}
+                            </p>
                         )}
+
+                        <StatusHistory history={complaint.statusHistory} />
                     </div>
 
-                    {/* ── Right: actions panel ─────────────────────────────────────── */}
-                    <div style={s.rightCol}>
-                        <div style={s.actionsCard}>
-                            <span style={s.sectionLabel}>Actions</span>
+                    {/* ── Right: actions ─────────────────────────────────────── */}
+                    <div>
+                        <Card style={{ position: 'sticky', top: '72px' }}>
+                            <div
+                                style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}
+                            >
+                                <SectionLabel>Actions</SectionLabel>
 
-                            {actionErr && <div style={s.actionErr}>{actionErr}</div>}
+                                <ErrorBanner message={actionErr} />
 
-                            {complaint.status === 'submitted' && (
-                                <>
-                                    <button
-                                        onClick={handleVerify}
-                                        disabled={actionLoading}
-                                        style={s.btnPrimary}
-                                    >
-                                        {actionLoading ? 'Verifying…' : '✓ Verify Complaint'}
-                                    </button>
-                                    <button
-                                        onClick={() => setShowReject(!showReject)}
-                                        style={s.btnDanger}
-                                    >
-                                        ✗ Reject
-                                    </button>
-                                    {showReject && (
-                                        <div style={s.rejectPanel}>
-                                            <textarea
-                                                value={rejectNote}
-                                                onChange={(e) => setRejectNote(e.target.value)}
-                                                placeholder="Reason for rejection…"
-                                                rows={3}
-                                                style={s.textarea}
-                                            />
-                                            <button
-                                                onClick={handleReject}
-                                                disabled={actionLoading}
-                                                style={s.btnDangerSolid}
+                                {/* Submitted → verify or reject */}
+                                {complaint.status === 'submitted' && (
+                                    <>
+                                        <BtnPrimary
+                                            onClick={handleVerify}
+                                            loading={actionLoading}
+                                            loadingText="Verifying…"
+                                        >
+                                            ✓ Verify Complaint
+                                        </BtnPrimary>
+                                        <BtnDanger onClick={() => setShowReject((v) => !v)}>
+                                            ✗ Reject
+                                        </BtnDanger>
+                                        {showReject && (
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: space[2],
+                                                }}
                                             >
-                                                Confirm Rejection
-                                            </button>
+                                                <Textarea
+                                                    value={rejectNote}
+                                                    onChange={(e) => setRejectNote(e.target.value)}
+                                                    placeholder="Reason for rejection…"
+                                                    rows={3}
+                                                />
+                                                <BtnDangerSolid
+                                                    onClick={handleReject}
+                                                    loading={actionLoading}
+                                                >
+                                                    Confirm Rejection
+                                                </BtnDangerSolid>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Verified → dispatch */}
+                                {complaint.status === 'verified' && !showDispatch && (
+                                    <BtnPrimary onClick={openDispatchPanel}>
+                                        📋 Dispatch to Worker
+                                    </BtnPrimary>
+                                )}
+
+                                {showDispatch && (
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: space[2],
+                                            borderTop: `1px solid ${color.borderDefault}`,
+                                            paddingTop: space[3],
+                                        }}
+                                    >
+                                        <SectionLabel>Select worker</SectionLabel>
+                                        {workersLoading ? (
+                                            <span
+                                                style={{
+                                                    fontSize: font.size.sm,
+                                                    color: color.textMuted,
+                                                }}
+                                            >
+                                                Loading workers…
+                                            </span>
+                                        ) : workers.length === 0 ? (
+                                            <span
+                                                style={{
+                                                    fontSize: font.size.sm,
+                                                    color: color.textMuted,
+                                                }}
+                                            >
+                                                No available workers in this ward.
+                                            </span>
+                                        ) : (
+                                            <Select
+                                                value={selectedWorker}
+                                                onChange={(e) => setSelectedWorker(e.target.value)}
+                                            >
+                                                <option value="">Choose a worker…</option>
+                                                {workers.map((w) => (
+                                                    <option key={w._id} value={w._id}>
+                                                        {w.name} — {w.activeTaskCount} active task
+                                                        {w.activeTaskCount !== 1 ? 's' : ''}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        )}
+                                        <Textarea
+                                            value={instructions}
+                                            onChange={(e) => setInstructions(e.target.value)}
+                                            placeholder="Instructions for worker (optional)"
+                                            rows={2}
+                                        />
+                                        <BtnPrimary
+                                            onClick={handleDispatch}
+                                            loading={actionLoading}
+                                            disabled={!selectedWorker}
+                                            loadingText="Dispatching…"
+                                        >
+                                            Confirm Dispatch
+                                        </BtnPrimary>
+                                        <BtnGhost onClick={() => setShowDispatch(false)}>
+                                            Cancel
+                                        </BtnGhost>
+                                    </div>
+                                )}
+
+                                {/* Assigned/In-Progress → show worker */}
+                                {['assigned', 'in_progress'].includes(complaint.status) &&
+                                    assignment && (
+                                        <div
+                                            style={{
+                                                borderTop: `1px solid ${color.borderDefault}`,
+                                                paddingTop: space[3],
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: space[1],
+                                            }}
+                                        >
+                                            <SectionLabel>Assigned worker</SectionLabel>
+                                            <p
+                                                style={{
+                                                    fontSize: font.size.md,
+                                                    fontWeight: font.weight.bold,
+                                                    color: color.textPrimary,
+                                                    margin: 0,
+                                                }}
+                                            >
+                                                {assignment.workerId?.name}
+                                            </p>
+                                            <span
+                                                style={{
+                                                    fontSize: font.size.xs,
+                                                    color: '#a78bfa',
+                                                    fontWeight: font.weight.semibold,
+                                                }}
+                                            >
+                                                {ASSIGNMENT_STATUS_LABELS[assignment.status]}
+                                            </span>
+                                            {assignment.instructions && (
+                                                <p
+                                                    style={{
+                                                        fontSize: font.size.sm,
+                                                        color: color.textMuted,
+                                                        fontStyle: 'italic',
+                                                        margin: `${space[1]} 0 0`,
+                                                    }}
+                                                >
+                                                    "{assignment.instructions}"
+                                                </p>
+                                            )}
                                         </div>
                                     )}
-                                </>
-                            )}
 
-                            {complaint.status === 'verified' && !showDispatch && (
-                                <button onClick={openDispatchPanel} style={s.btnPrimary}>
-                                    📋 Dispatch to Worker
-                                </button>
-                            )}
-
-                            {showDispatch && (
-                                <div style={s.dispatchPanel}>
-                                    <span style={s.dispatchLabel}>Select worker</span>
-                                    {workersLoading ? (
-                                        <p style={s.dimText}>Loading workers…</p>
-                                    ) : workers.length === 0 ? (
-                                        <p style={s.dimText}>No available workers in this ward.</p>
-                                    ) : (
-                                        <select
-                                            value={selectedWorker}
-                                            onChange={(e) => setSelectedWorker(e.target.value)}
-                                            style={s.select}
-                                        >
-                                            <option value="">Choose a worker…</option>
-                                            {workers.map((w) => (
-                                                <option key={w._id} value={w._id}>
-                                                    {w.name} — {w.activeTaskCount} active task
-                                                    {w.activeTaskCount !== 1 ? 's' : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                    <textarea
-                                        value={instructions}
-                                        onChange={(e) => setInstructions(e.target.value)}
-                                        placeholder="Instructions for worker (optional)"
-                                        rows={2}
-                                        style={s.textarea}
-                                    />
-                                    <button
-                                        onClick={handleDispatch}
-                                        disabled={actionLoading || !selectedWorker}
-                                        style={s.btnPrimary}
+                                {/* Resolved */}
+                                {complaint.status === 'resolved' && (
+                                    <div
+                                        style={{
+                                            background: '#052e1611',
+                                            border: '1px solid #22c55e33',
+                                            borderRadius: radius.md,
+                                            padding: space[3],
+                                            fontSize: font.size.sm,
+                                            color: '#4ade80',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: space[2],
+                                        }}
                                     >
-                                        {actionLoading ? 'Dispatching…' : 'Confirm Dispatch'}
-                                    </button>
-                                    <button
-                                        onClick={() => setShowDispatch(false)}
-                                        style={s.btnGhost}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            )}
-
-                            {['assigned', 'in_progress'].includes(complaint.status) &&
-                                assignment && (
-                                    <div style={s.assignmentCard}>
-                                        <span style={s.dispatchLabel}>Assigned worker</span>
-                                        <p style={s.assignedWorkerName}>
-                                            {assignment.workerId?.name}
-                                        </p>
-                                        <span style={s.assignmentStatus}>
-                                            {ASSIGNMENT_STATUS_LABELS[assignment.status]}
-                                        </span>
-                                        {assignment.instructions && (
-                                            <p style={s.assignmentInstructions}>
-                                                "{assignment.instructions}"
-                                            </p>
+                                        ✓ Resolved{' '}
+                                        {complaint.resolvedAt &&
+                                            new Date(complaint.resolvedAt).toLocaleDateString(
+                                                'en-IN'
+                                            )}
+                                        {complaint.resolutionImageUrl && (
+                                            <img
+                                                src={complaint.resolutionImageUrl}
+                                                alt="Resolution proof"
+                                                style={{ width: '100%', borderRadius: radius.sm }}
+                                            />
                                         )}
                                     </div>
                                 )}
 
-                            {complaint.status === 'resolved' && (
-                                <div style={s.resolvedBanner}>
-                                    ✓ Resolved{' '}
-                                    {complaint.resolvedAt &&
-                                        new Date(complaint.resolvedAt).toLocaleDateString('en-IN')}
-                                    {complaint.resolutionImageUrl && (
-                                        <img
-                                            src={complaint.resolutionImageUrl}
-                                            alt="Resolution proof"
-                                            style={s.resolutionImg}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {complaint.status === 'rejected' && (
-                                <div style={s.rejectedBanner}>✗ This complaint was rejected.</div>
-                            )}
-                        </div>
+                                {/* Rejected */}
+                                {complaint.status === 'rejected' && (
+                                    <div
+                                        style={{
+                                            background: '#450a0a11',
+                                            border: '1px solid #7f1d1d44',
+                                            borderRadius: radius.md,
+                                            padding: space[3],
+                                            fontSize: font.size.sm,
+                                            color: '#f87171',
+                                        }}
+                                    >
+                                        ✗ This complaint was rejected.
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
                     </div>
                 </div>
             </main>
-        </div>
+        </PageShell>
     );
 }
-
-const s = {
-    page: {
-        minHeight: '100vh',
-        background: '#0f172a',
-        fontFamily: "'Inter', system-ui, sans-serif",
-        color: '#f8fafc',
-    },
-    loadingPage: {
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '1rem',
-        background: '#0f172a',
-        color: '#64748b',
-    },
-    nav: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 1.5rem',
-        height: '56px',
-        background: '#0f172a',
-        borderBottom: '1px solid #1e293b',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-    },
-    backLink: { fontSize: '0.82rem', color: '#94a3b8', textDecoration: 'none' },
-    navTitle: { fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0' },
-    main: { maxWidth: '1000px', margin: '0 auto', padding: '1.75rem 1.5rem 4rem' },
-    grid: { display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.75rem' },
-    leftCol: { display: 'flex', flexDirection: 'column', gap: '1.25rem' },
-    rightCol: {},
-    image: {
-        width: '100%',
-        height: '320px',
-        objectFit: 'cover',
-        borderRadius: '0.875rem',
-        border: '1px solid #334155',
-    },
-    titleRow: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: '1rem',
-    },
-    title: { fontSize: '1.3rem', fontWeight: 800, color: '#f8fafc', margin: 0, lineHeight: 1.3 },
-    statusBadge: {
-        fontSize: '0.75rem',
-        fontWeight: 700,
-        padding: '0.3rem 0.75rem',
-        borderRadius: '9999px',
-        whiteSpace: 'nowrap',
-    },
-    cascadeBanner: {
-        background: '#7c2d1215',
-        border: '1px solid #f9731644',
-        borderRadius: '0.625rem',
-        padding: '0.75rem 1rem',
-        fontSize: '0.82rem',
-        color: '#fb923c',
-    },
-    cascadeSourceText: { color: '#fdba74', fontWeight: 600 },
-    dupBanner: {
-        background: '#1e293b',
-        border: '1px solid #334155',
-        borderRadius: '0.625rem',
-        padding: '0.75rem 1rem',
-        fontSize: '0.82rem',
-        color: '#94a3b8',
-    },
-    description: { fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.7, margin: 0 },
-    metaGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '1rem',
-        background: '#1e293b',
-        borderRadius: '0.75rem',
-        padding: '1rem',
-        border: '1px solid #334155',
-    },
-    metaItem: { display: 'flex', flexDirection: 'column', gap: '0.2rem' },
-    metaLabel: {
-        fontSize: '0.65rem',
-        color: '#475569',
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase',
-    },
-    metaValue: { fontSize: '0.84rem', color: '#e2e8f0', fontWeight: 600 },
-    address: { fontSize: '0.8rem', color: '#64748b', margin: 0 },
-    historySection: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
-    sectionLabel: {
-        fontSize: '0.7rem',
-        fontWeight: 700,
-        color: '#475569',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-    },
-    historyList: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
-    historyItem: { display: 'flex', alignItems: 'flex-start', gap: '0.625rem' },
-    historyDot: {
-        width: '0.5rem',
-        height: '0.5rem',
-        borderRadius: '50%',
-        marginTop: '0.3rem',
-        flexShrink: 0,
-    },
-    historyStatus: { fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' },
-    historyNote: { fontSize: '0.8rem', color: '#94a3b8' },
-    historyDate: { display: 'block', fontSize: '0.7rem', color: '#475569', marginTop: '0.1rem' },
-    actionsCard: {
-        background: '#1e293b',
-        border: '1px solid #334155',
-        borderRadius: '0.875rem',
-        padding: '1.25rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        position: 'sticky',
-        top: '80px',
-    },
-    actionErr: {
-        background: '#450a0a',
-        border: '1px solid #7f1d1d',
-        borderRadius: '0.5rem',
-        color: '#fca5a5',
-        fontSize: '0.78rem',
-        padding: '0.6rem 0.75rem',
-    },
-    btnPrimary: {
-        background: '#22d3ee',
-        border: 'none',
-        borderRadius: '0.5rem',
-        color: '#0f172a',
-        fontSize: '0.85rem',
-        fontWeight: 700,
-        padding: '0.65rem',
-        cursor: 'pointer',
-    },
-    btnDanger: {
-        background: 'none',
-        border: '1px solid #7f1d1d',
-        borderRadius: '0.5rem',
-        color: '#ef4444',
-        fontSize: '0.85rem',
-        fontWeight: 600,
-        padding: '0.6rem',
-        cursor: 'pointer',
-    },
-    btnDangerSolid: {
-        background: '#ef4444',
-        border: 'none',
-        borderRadius: '0.5rem',
-        color: '#fff',
-        fontSize: '0.82rem',
-        fontWeight: 700,
-        padding: '0.6rem',
-        cursor: 'pointer',
-    },
-    btnGhost: {
-        background: 'none',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#64748b',
-        fontSize: '0.8rem',
-        padding: '0.5rem',
-        cursor: 'pointer',
-    },
-    rejectPanel: { display: 'flex', flexDirection: 'column', gap: '0.6rem' },
-    dispatchPanel: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.6rem',
-        borderTop: '1px solid #334155',
-        paddingTop: '0.875rem',
-    },
-    dispatchLabel: { fontSize: '0.72rem', fontWeight: 600, color: '#64748b' },
-    dimText: { fontSize: '0.78rem', color: '#475569' },
-    select: {
-        background: '#0f172a',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#f1f5f9',
-        fontSize: '0.82rem',
-        padding: '0.6rem 0.75rem',
-        outline: 'none',
-    },
-    textarea: {
-        background: '#0f172a',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#f1f5f9',
-        fontSize: '0.82rem',
-        padding: '0.6rem 0.75rem',
-        resize: 'vertical',
-        outline: 'none',
-        fontFamily: 'inherit',
-    },
-    assignmentCard: {
-        borderTop: '1px solid #334155',
-        paddingTop: '0.875rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.3rem',
-    },
-    assignedWorkerName: { fontSize: '0.9rem', fontWeight: 700, color: '#e2e8f0', margin: 0 },
-    assignmentStatus: { fontSize: '0.75rem', color: '#a78bfa', fontWeight: 600 },
-    assignmentInstructions: {
-        fontSize: '0.78rem',
-        color: '#64748b',
-        fontStyle: 'italic',
-        margin: '0.3rem 0 0 0',
-    },
-    resolvedBanner: {
-        background: '#052e1611',
-        border: '1px solid #22c55e33',
-        borderRadius: '0.625rem',
-        padding: '0.875rem',
-        fontSize: '0.82rem',
-        color: '#4ade80',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.625rem',
-    },
-    resolutionImg: { width: '100%', borderRadius: '0.5rem' },
-    rejectedBanner: {
-        background: '#450a0a11',
-        border: '1px solid #7f1d1d44',
-        borderRadius: '0.625rem',
-        padding: '0.875rem',
-        fontSize: '0.82rem',
-        color: '#f87171',
-    },
-};
