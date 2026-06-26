@@ -9,11 +9,9 @@ const SCOPE = 'Ward';
 
 export async function listWards(query) {
     const { city, isActive } = query;
-
     const filter = {};
     if (city) filter.city = city;
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
-    else filter.isActive = true;
+    filter.isActive = isActive !== undefined ? isActive === 'true' : true;
 
     const wards = await Ward.find(filter)
         .sort({ wardNumber: 1 })
@@ -64,7 +62,6 @@ export async function createWard(dto) {
     }
 
     logger.success(SCOPE, `Ward "${ward.name}" (#${ward.wardNumber}) created`);
-
     return { ward };
 }
 
@@ -73,7 +70,6 @@ export async function updateWard(wardId, dto) {
     if (!ward) throw ApiError.notFound('Ward');
 
     const { name, city, isActive, boundary } = dto;
-
     if (name) ward.name = name.trim();
     if (city) ward.city = city.trim();
     if (typeof isActive === 'boolean') ward.isActive = isActive;
@@ -91,19 +87,17 @@ export async function assignOfficer(wardId, officerId) {
     if (!officer)
         throw ApiError.badRequest('Officer not found or not an officer.', 'INVALID_OFFICER');
 
-    await Ward.updateMany({ officerId }, { $set: { officerId: null } });
-
-    if (ward.officerId) {
+    if (ward.officerId && ward.officerId.toString() !== officerId.toString()) {
         await User.updateOne({ _id: ward.officerId }, { $set: { assignedWard: null } });
     }
 
+    await Ward.updateOne({ officerId, _id: { $ne: wardId } }, { $set: { officerId: null } });
+
     ward.officerId = officerId;
     await ward.save();
-
     await User.updateOne({ _id: officerId }, { $set: { assignedWard: ward._id } });
 
     logger.info(SCOPE, `Officer ${officerId} assigned to ward ${wardId}`);
-
     return { ward };
 }
 
@@ -151,6 +145,7 @@ export async function recomputeWardStats(wardId) {
         wardId,
         createdAt: { $gte: since },
     });
+
     const resolutionRate =
         totalComplaintsWindow > 0 ? Math.round((totalResolved / totalComplaintsWindow) * 100) : 100;
 
