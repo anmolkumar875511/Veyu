@@ -223,5 +223,11 @@ complaintSchema.pre('save', function () {
     }
 });
 
+complaintSchema.methods.transitionStatus = function (newStatus, changedBy, note = null) {
+    this.status = newStatus;
+    this.statusChangedBy = changedBy;
+    this.statusChangeNote = note;
+};
+
 const Complaint = model('Complaint', complaintSchema);
 export default Complaint;

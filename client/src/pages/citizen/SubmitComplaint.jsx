@@ -1,45 +1,177 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // src/pages/citizen/SubmitComplaint.jsx
-//
-// Citizen complaint submission form.
-// Features:
-//   - Live camera / file picker for image
-//   - Auto GPS capture with manual override
-//   - AI auto-classifies category + generates title (user sees result)
-//   - Category override dropdown if AI is wrong
-//   - Duplicate warning if server detects a nearby similar complaint
-// ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { submitComplaintApi, parseComplaintError } from '../../api/complaints.api.js';
 import { COMPLAINT_CATEGORIES } from '../../constants/complaint.constants.js';
+import { PageShell, NavBar, ErrorBanner } from '../../components/citizen/CitizenShell.jsx';
+import { color, font, space, radius, transition, mk } from '../../theme/index.js';
 
-const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB
+const MAX_FILE_SIZE = 8 * 1024 * 1024;
 
+// ── Field wrapper ─────────────────────────────────────────────────────────────
+function Field({ label, required, optional, htmlFor, error, children }) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <label
+                style={{
+                    fontSize: font.size.sm,
+                    fontWeight: font.weight.medium,
+                    color: color.textSecondary,
+                }}
+                htmlFor={htmlFor}
+            >
+                {label} {required && <span style={{ color: color.danger }}>*</span>}
+                {optional && (
+                    <span style={{ color: color.textMuted, fontWeight: font.weight.normal }}>
+                        (optional)
+                    </span>
+                )}
+            </label>
+            {children}
+            {error && <span style={{ fontSize: font.size.xs, color: color.danger }}>{error}</span>}
+        </div>
+    );
+}
+
+// ── Success screen ─────────────────────────────────────────────────────────────
+function SuccessScreen({ result, onReset, navigate }) {
+    const { complaint, isDuplicate } = result;
+    return (
+        <PageShell>
+            <div
+                style={{
+                    maxWidth: '440px',
+                    margin: '4rem auto',
+                    background: color.bgSurface,
+                    border: `1px solid ${color.borderDefault}`,
+                    borderRadius: radius.xl,
+                    padding: space[10],
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: space[4],
+                }}
+            >
+                <div style={{ fontSize: '3rem' }}>{isDuplicate ? '🔁' : '✅'}</div>
+
+                <h2
+                    style={{
+                        fontSize: '1.4rem',
+                        fontWeight: font.weight.extrabold,
+                        color: color.textPrimary,
+                        margin: 0,
+                    }}
+                >
+                    {isDuplicate ? 'Already reported!' : 'Report submitted!'}
+                </h2>
+
+                {isDuplicate ? (
+                    <p
+                        style={{
+                            fontSize: font.size.base,
+                            color: color.textMuted,
+                            lineHeight: 1.6,
+                            margin: 0,
+                        }}
+                    >
+                        A similar issue already exists nearby. We've linked your report to it. You
+                        can upvote the original to increase its priority.
+                    </p>
+                ) : (
+                    <>
+                        <p
+                            style={{
+                                fontSize: font.size.base,
+                                color: color.textMuted,
+                                lineHeight: 1.6,
+                                margin: 0,
+                            }}
+                        >
+                            Your complaint has been submitted and will be reviewed shortly.
+                        </p>
+                        <div
+                            style={{
+                                background: color.bgPage,
+                                borderRadius: radius.md,
+                                padding: `${space[3]} ${space[5]}`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.3rem',
+                                width: '100%',
+                                border: `1px solid ${color.borderFaint}`,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: font.size.xs,
+                                    color: color.textMuted,
+                                    letterSpacing: font.tracking.wide,
+                                    textTransform: 'uppercase',
+                                }}
+                            >
+                                AI classified as
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: font.size.md,
+                                    fontWeight: font.weight.bold,
+                                    color: color.accent,
+                                }}
+                            >
+                                {complaint.category}
+                            </span>
+                            <span style={{ fontSize: font.size.sm, color: color.textSecondary }}>
+                                Severity: <strong>{complaint.severity}/10</strong>
+                            </span>
+                        </div>
+                    </>
+                )}
+
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: space[3],
+                        width: '100%',
+                        marginTop: space[2],
+                    }}
+                >
+                    <button onClick={() => navigate('/my-reports')} style={mk.btnPrimary()}>
+                        View my reports
+                    </button>
+                    <button onClick={onReset} style={mk.btnSecondary()}>
+                        Submit another
+                    </button>
+                </div>
+            </div>
+        </PageShell>
+    );
+}
+
+// ── Main form ─────────────────────────────────────────────────────────────────
 export default function SubmitComplaint() {
     const navigate = useNavigate();
+    const fileRef = useRef(null);
 
-    const [image, setImage] = useState(null); // File object
-    const [preview, setPreview] = useState(null); // data URL
+    const [image, setImage] = useState(null);
+    const [preview, setPreview] = useState(null);
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState(''); // override; empty = let AI decide
+    const [category, setCategory] = useState('');
     const [lat, setLat] = useState('');
     const [lng, setLng] = useState('');
     const [address, setAddress] = useState('');
-    const [gpsStatus, setGpsStatus] = useState('idle'); // idle | loading | ok | error
+    const [gpsStatus, setGpsStatus] = useState('idle');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [fieldErrors, setFieldErrors] = useState({});
-    const [result, setResult] = useState(null); // success state
+    const [result, setResult] = useState(null);
 
-    const fileRef = useRef(null);
-
-    // ── Image picker ───────────────────────────────────────────────────────────
+    // ── Image ─────────────────────────────────────────────────────────────────
     function handleImageChange(e) {
         const file = e.target.files?.[0];
         if (!file) return;
-
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
             setFieldErrors((fe) => ({ ...fe, image: 'Only JPG, PNG, or WEBP accepted.' }));
             return;
@@ -48,7 +180,6 @@ export default function SubmitComplaint() {
             setFieldErrors((fe) => ({ ...fe, image: 'Image must be under 8MB.' }));
             return;
         }
-
         setImage(file);
         setPreview(URL.createObjectURL(file));
         setFieldErrors((fe) => {
@@ -58,7 +189,7 @@ export default function SubmitComplaint() {
         });
     }
 
-    // ── GPS capture ────────────────────────────────────────────────────────────
+    // ── GPS ───────────────────────────────────────────────────────────────────
     function captureGPS() {
         if (!navigator.geolocation) {
             setGpsStatus('error');
@@ -77,11 +208,11 @@ export default function SubmitComplaint() {
                 });
             },
             () => setGpsStatus('error'),
-            { timeout: 8000, maximumAge: 30000 }
+            { timeout: 8000, maximumAge: 30_000 }
         );
     }
 
-    // ── Client validation ──────────────────────────────────────────────────────
+    // ── Validate ──────────────────────────────────────────────────────────────
     function validate() {
         const errs = {};
         if (!image) errs.image = 'A photo is required.';
@@ -95,7 +226,6 @@ export default function SubmitComplaint() {
     async function handleSubmit(e) {
         e.preventDefault();
         setError(null);
-
         const errs = validate();
         if (Object.keys(errs).length > 0) {
             setFieldErrors(errs);
@@ -112,8 +242,7 @@ export default function SubmitComplaint() {
 
         setSubmitting(true);
         try {
-            const data = await submitComplaintApi(fd);
-            setResult(data);
+            setResult(await submitComplaintApi(fd));
         } catch (err) {
             setError(parseComplaintError(err));
         } finally {
@@ -121,98 +250,124 @@ export default function SubmitComplaint() {
         }
     }
 
-    // ── Success screen ─────────────────────────────────────────────────────────
-    if (result) {
-        const { complaint, isDuplicate, duplicateOf } = result;
-        return (
-            <div style={s.page}>
-                <div style={s.successCard}>
-                    <div style={s.successIcon}>{isDuplicate ? '🔁' : '✅'}</div>
-                    <h2 style={s.successHeading}>
-                        {isDuplicate ? 'Already reported!' : 'Report submitted!'}
-                    </h2>
-
-                    {isDuplicate ? (
-                        <p style={s.successSub}>
-                            A similar issue already exists nearby. We've linked your report to it.
-                            You can upvote the original to increase its priority.
-                        </p>
-                    ) : (
-                        <>
-                            <p style={s.successSub}>
-                                Your complaint has been submitted and will be reviewed shortly.
-                            </p>
-                            <div style={s.aiResultBox}>
-                                <span style={s.aiLabel}>AI classified as</span>
-                                <span style={s.aiCategory}>{complaint.category}</span>
-                                <span style={s.aiSeverity}>
-                                    Severity: <strong>{complaint.severity}/10</strong>
-                                </span>
-                            </div>
-                        </>
-                    )}
-
-                    <div style={s.successActions}>
-                        <button onClick={() => navigate('/my-reports')} style={s.btnPrimary}>
-                            View my reports
-                        </button>
-                        <button
-                            onClick={() => {
-                                setResult(null);
-                                setImage(null);
-                                setPreview(null);
-                                setDescription('');
-                                setCategory('');
-                                setLat('');
-                                setLng('');
-                                setAddress('');
-                            }}
-                            style={s.btnSecondary}
-                        >
-                            Submit another
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
+    function handleReset() {
+        setResult(null);
+        setImage(null);
+        setPreview(null);
+        setDescription('');
+        setCategory('');
+        setLat('');
+        setLng('');
+        setAddress('');
+        setGpsStatus('idle');
+        setError(null);
+        setFieldErrors({});
     }
 
-    // ── Form ───────────────────────────────────────────────────────────────────
-    return (
-        <div style={s.page}>
-            <header style={s.nav}>
-                <Link to="/dashboard" style={s.backLink}>
-                    ← Dashboard
-                </Link>
-                <span style={s.navTitle}>Report Issue</span>
-                <span />
-            </header>
+    // ── Success ───────────────────────────────────────────────────────────────
+    if (result) {
+        return <SuccessScreen result={result} onReset={handleReset} navigate={navigate} />;
+    }
 
-            <main style={s.main}>
-                <div style={s.card}>
-                    <h1 style={s.heading}>Report a civic issue</h1>
-                    <p style={s.subheading}>
+    // ── Shared input style helper ─────────────────────────────────────────────
+    const inp = (hasError) => ({
+        background: color.bgPage,
+        border: `1px solid ${hasError ? color.danger : color.borderDefault}`,
+        borderRadius: radius.md,
+        color: color.textPrimary,
+        fontSize: font.size.base,
+        padding: '0.65rem 0.875rem',
+        outline: 'none',
+        width: '100%',
+        boxSizing: 'border-box',
+        fontFamily: font.sans,
+        transition: transition.fast,
+    });
+
+    return (
+        <PageShell>
+            <NavBar
+                left={
+                    <Link
+                        to="/dashboard"
+                        style={{
+                            fontSize: font.size.sm,
+                            color: color.textSecondary,
+                            textDecoration: 'none',
+                        }}
+                    >
+                        ← Dashboard
+                    </Link>
+                }
+                center={
+                    <span
+                        style={{
+                            fontSize: font.size.base,
+                            fontWeight: font.weight.semibold,
+                            color: color.textPrimary,
+                        }}
+                    >
+                        Report Issue
+                    </span>
+                }
+                right={<span />}
+            />
+
+            <main
+                style={{
+                    maxWidth: '540px',
+                    margin: '0 auto',
+                    padding: `${space[8]} ${space[5]} ${space[16]}`,
+                }}
+            >
+                <div
+                    style={{
+                        background: color.bgSurface,
+                        border: `1px solid ${color.borderDefault}`,
+                        borderRadius: radius.xl,
+                        padding: `${space[8]} ${space[6]}`,
+                    }}
+                >
+                    <h1
+                        style={{
+                            fontSize: '1.3rem',
+                            fontWeight: font.weight.extrabold,
+                            color: color.textPrimary,
+                            margin: `0 0 ${space[1]} 0`,
+                        }}
+                    >
+                        Report a civic issue
+                    </h1>
+                    <p
+                        style={{
+                            fontSize: font.size.sm,
+                            color: color.textMuted,
+                            margin: `0 0 ${space[6]} 0`,
+                        }}
+                    >
                         AI will auto-classify your report and score its severity.
                     </p>
 
-                    {error && (
-                        <div style={s.errorBanner} role="alert">
-                            {error}
-                        </div>
-                    )}
+                    <ErrorBanner message={error} />
 
-                    <form onSubmit={handleSubmit} style={s.form} noValidate>
-                        {/* ── Photo ─────────────────────────────────────────────────── */}
-                        <div style={s.fieldGroup}>
-                            <label style={s.label}>
-                                Photo <span style={s.required}>*</span>
-                            </label>
-
+                    <form
+                        onSubmit={handleSubmit}
+                        style={{ display: 'flex', flexDirection: 'column', gap: space[6] }}
+                        noValidate
+                    >
+                        {/* Photo */}
+                        <Field label="Photo" required error={fieldErrors.image}>
                             <div
                                 style={{
-                                    ...s.imagePicker,
-                                    borderColor: fieldErrors.image ? '#ef4444' : '#334155',
-                                    background: preview ? 'transparent' : '#0f172a',
+                                    border: `2px dashed ${fieldErrors.image ? color.danger : color.borderDefault}`,
+                                    borderRadius: radius.lg,
+                                    minHeight: '180px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    background: preview ? 'transparent' : color.bgPage,
                                 }}
                                 onClick={() => fileRef.current?.click()}
                                 role="button"
@@ -220,18 +375,47 @@ export default function SubmitComplaint() {
                                 onKeyDown={(e) => e.key === 'Enter' && fileRef.current?.click()}
                             >
                                 {preview ? (
-                                    <img src={preview} alt="Preview" style={s.previewImg} />
+                                    <img
+                                        src={preview}
+                                        alt="Preview"
+                                        style={{
+                                            width: '100%',
+                                            height: '220px',
+                                            objectFit: 'cover',
+                                            display: 'block',
+                                        }}
+                                    />
                                 ) : (
-                                    <div style={s.imagePickerInner}>
-                                        <span style={s.cameraIcon}>📷</span>
-                                        <span style={s.imagePickerText}>Tap to add photo</span>
-                                        <span style={s.imagePickerSub}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: space[2],
+                                            padding: space[8],
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '2.5rem' }}>📷</span>
+                                        <span
+                                            style={{
+                                                fontSize: font.size.base,
+                                                fontWeight: font.weight.medium,
+                                                color: color.textSecondary,
+                                            }}
+                                        >
+                                            Tap to add photo
+                                        </span>
+                                        <span
+                                            style={{
+                                                fontSize: font.size.xs,
+                                                color: color.textMuted,
+                                            }}
+                                        >
                                             JPG, PNG or WEBP · max 8MB
                                         </span>
                                     </div>
                                 )}
                             </div>
-
                             <input
                                 ref={fileRef}
                                 type="file"
@@ -246,21 +430,27 @@ export default function SubmitComplaint() {
                                         setImage(null);
                                         setPreview(null);
                                     }}
-                                    style={s.removeImg}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: color.danger,
+                                        fontSize: font.size.xs,
+                                        cursor: 'pointer',
+                                        alignSelf: 'flex-start',
+                                    }}
                                 >
                                     Remove photo
                                 </button>
                             )}
-                            {fieldErrors.image && (
-                                <span style={s.fieldError}>{fieldErrors.image}</span>
-                            )}
-                        </div>
+                        </Field>
 
-                        {/* ── Description ───────────────────────────────────────────── */}
-                        <div style={s.fieldGroup}>
-                            <label style={s.label} htmlFor="description">
-                                Description <span style={s.required}>*</span>
-                            </label>
+                        {/* Description */}
+                        <Field
+                            label="Description"
+                            required
+                            htmlFor="description"
+                            error={fieldErrors.description}
+                        >
                             <textarea
                                 id="description"
                                 value={description}
@@ -274,30 +464,31 @@ export default function SubmitComplaint() {
                                         });
                                 }}
                                 rows={4}
-                                placeholder="Describe the issue in detail. e.g. Large pothole near the school gate causing accidents..."
+                                placeholder="Describe the issue in detail. e.g. Large pothole near the school gate causing accidents…"
                                 style={{
-                                    ...s.textarea,
-                                    borderColor: fieldErrors.description ? '#ef4444' : '#334155',
+                                    ...inp(!!fieldErrors.description),
+                                    resize: 'vertical',
+                                    lineHeight: 1.6,
                                 }}
                             />
-                            <div style={s.charCount}>
-                                <span style={fieldErrors.description ? { color: '#ef4444' } : {}}>
-                                    {fieldErrors.description ?? `${description.length}/1000`}
-                                </span>
+                            <div
+                                style={{
+                                    fontSize: font.size.xs,
+                                    color: color.textMuted,
+                                    textAlign: 'right',
+                                }}
+                            >
+                                {description.length}/1000
                             </div>
-                        </div>
+                        </Field>
 
-                        {/* ── Category override (optional) ───────────────────────────── */}
-                        <div style={s.fieldGroup}>
-                            <label style={s.label} htmlFor="category">
-                                Category{' '}
-                                <span style={s.optional}>(optional — AI will auto-detect)</span>
-                            </label>
+                        {/* Category override */}
+                        <Field label="Category" optional htmlFor="category">
                             <select
                                 id="category"
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
-                                style={s.select}
+                                style={{ ...inp(false), cursor: 'pointer' }}
                             >
                                 <option value="">Let AI decide</option>
                                 {COMPLAINT_CATEGORIES.map((c) => (
@@ -306,19 +497,24 @@ export default function SubmitComplaint() {
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                        </Field>
 
-                        {/* ── Location ──────────────────────────────────────────────── */}
-                        <div style={s.fieldGroup}>
-                            <label style={s.label}>
-                                Location <span style={s.required}>*</span>
-                            </label>
-
+                        {/* Location */}
+                        <Field label="Location" required error={fieldErrors.coords}>
                             <button
                                 type="button"
                                 onClick={captureGPS}
-                                style={s.gpsBtn}
                                 disabled={gpsStatus === 'loading'}
+                                style={{
+                                    background: color.bgSurface,
+                                    border: `1px solid ${color.borderDefault}`,
+                                    borderRadius: radius.md,
+                                    color: color.textSecondary,
+                                    fontSize: font.size.sm,
+                                    padding: `0.6rem 0.875rem`,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                }}
                             >
                                 {gpsStatus === 'loading' && '📡 Getting location…'}
                                 {gpsStatus === 'ok' && '📍 Location captured — tap to refresh'}
@@ -327,20 +523,33 @@ export default function SubmitComplaint() {
                             </button>
 
                             {gpsStatus === 'ok' && (
-                                <p style={s.coordsText}>
+                                <p
+                                    style={{
+                                        fontSize: font.size.xs,
+                                        color: color.success,
+                                        margin: `${space[1]} 0 0`,
+                                    }}
+                                >
                                     {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}°E
                                 </p>
                             )}
 
                             {(gpsStatus === 'error' || gpsStatus === 'idle') && (
-                                <div style={s.manualCoords}>
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 1fr',
+                                        gap: space[3],
+                                        marginTop: space[2],
+                                    }}
+                                >
                                     <input
                                         type="number"
                                         step="any"
                                         placeholder="Latitude"
                                         value={lat}
                                         onChange={(e) => setLat(e.target.value)}
-                                        style={s.coordInput}
+                                        style={inp(false)}
                                     />
                                     <input
                                         type="number"
@@ -348,273 +557,69 @@ export default function SubmitComplaint() {
                                         placeholder="Longitude"
                                         value={lng}
                                         onChange={(e) => setLng(e.target.value)}
-                                        style={s.coordInput}
+                                        style={inp(false)}
                                     />
                                 </div>
                             )}
+                        </Field>
 
-                            {fieldErrors.coords && (
-                                <span style={s.fieldError}>{fieldErrors.coords}</span>
-                            )}
-                        </div>
-
-                        {/* ── Address (optional) ────────────────────────────────────── */}
-                        <div style={s.fieldGroup}>
-                            <label style={s.label} htmlFor="address">
-                                Landmark / address <span style={s.optional}>(optional)</span>
-                            </label>
+                        {/* Address */}
+                        <Field label="Landmark / address" optional htmlFor="address">
                             <input
                                 id="address"
                                 type="text"
                                 value={address}
                                 onChange={(e) => setAddress(e.target.value)}
                                 placeholder="e.g. Near SBI Bank, Sector 12"
-                                style={s.input}
+                                style={inp(false)}
                             />
-                        </div>
+                        </Field>
 
-                        {/* ── AI notice ─────────────────────────────────────────────── */}
-                        <div style={s.aiNotice}>
-                            <span style={s.aiNoticeDot}>✦</span>
-                            <span style={s.aiNoticeText}>
+                        {/* AI notice */}
+                        <div
+                            style={{
+                                display: 'flex',
+                                gap: space[2],
+                                alignItems: 'flex-start',
+                                background: color.bgPage,
+                                borderRadius: radius.md,
+                                padding: space[3],
+                                border: `1px solid ${color.borderFaint}`,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    color: color.accent,
+                                    fontSize: font.size.sm,
+                                    marginTop: '0.1rem',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                ✦
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: font.size.xs,
+                                    color: color.textMuted,
+                                    lineHeight: 1.5,
+                                }}
+                            >
                                 AI will automatically classify your complaint and score its
                                 severity. This usually takes 2–5 seconds after submission.
                             </span>
                         </div>
 
-                        {/* ── Submit ────────────────────────────────────────────────── */}
+                        {/* Submit */}
                         <button
                             type="submit"
                             disabled={submitting}
-                            style={{ ...s.submitBtn, opacity: submitting ? 0.65 : 1 }}
+                            style={mk.btnPrimary({ disabled: submitting })}
                         >
                             {submitting ? 'Submitting…' : 'Submit Report'}
                         </button>
                     </form>
                 </div>
             </main>
-        </div>
+        </PageShell>
     );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-const s = {
-    page: {
-        minHeight: '100vh',
-        background: '#0f172a',
-        fontFamily: "'Inter', system-ui, sans-serif",
-    },
-    nav: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 1.5rem',
-        height: '56px',
-        background: '#0f172a',
-        borderBottom: '1px solid #1e293b',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-    },
-    backLink: { fontSize: '0.82rem', color: '#94a3b8', textDecoration: 'none' },
-    navTitle: { fontSize: '0.9rem', fontWeight: 600, color: '#e2e8f0' },
-    main: { maxWidth: '540px', margin: '0 auto', padding: '2rem 1.25rem 4rem' },
-    card: {
-        background: '#1e293b',
-        border: '1px solid #334155',
-        borderRadius: '1rem',
-        padding: '2rem 1.75rem',
-    },
-    heading: { fontSize: '1.3rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 0.3rem 0' },
-    subheading: { fontSize: '0.82rem', color: '#64748b', margin: '0 0 1.75rem 0' },
-    errorBanner: {
-        background: '#450a0a',
-        border: '1px solid #7f1d1d',
-        borderRadius: '0.5rem',
-        color: '#fca5a5',
-        fontSize: '0.84rem',
-        padding: '0.75rem 1rem',
-        marginBottom: '1.25rem',
-    },
-    form: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
-    fieldGroup: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
-    label: { fontSize: '0.8rem', fontWeight: 500, color: '#94a3b8' },
-    required: { color: '#ef4444' },
-    optional: { color: '#475569', fontWeight: 400 },
-    imagePicker: {
-        border: '2px dashed',
-        borderRadius: '0.75rem',
-        minHeight: '180px',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-    },
-    imagePickerInner: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '2rem',
-    },
-    cameraIcon: { fontSize: '2.5rem' },
-    imagePickerText: { fontSize: '0.875rem', fontWeight: 500, color: '#94a3b8' },
-    imagePickerSub: { fontSize: '0.72rem', color: '#475569' },
-    previewImg: { width: '100%', height: '220px', objectFit: 'cover', display: 'block' },
-    removeImg: {
-        background: 'none',
-        border: 'none',
-        color: '#ef4444',
-        fontSize: '0.75rem',
-        cursor: 'pointer',
-        alignSelf: 'flex-start',
-    },
-    textarea: {
-        background: '#0f172a',
-        border: '1px solid',
-        borderRadius: '0.5rem',
-        color: '#f1f5f9',
-        fontSize: '0.875rem',
-        padding: '0.7rem 0.875rem',
-        resize: 'vertical',
-        outline: 'none',
-        width: '100%',
-        boxSizing: 'border-box',
-        fontFamily: 'inherit',
-        lineHeight: 1.6,
-    },
-    charCount: { fontSize: '0.7rem', color: '#475569', textAlign: 'right' },
-    select: {
-        background: '#0f172a',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#f1f5f9',
-        fontSize: '0.875rem',
-        padding: '0.65rem 0.875rem',
-        outline: 'none',
-        width: '100%',
-        cursor: 'pointer',
-    },
-    gpsBtn: {
-        background: '#1e293b',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#94a3b8',
-        fontSize: '0.82rem',
-        padding: '0.6rem 0.875rem',
-        cursor: 'pointer',
-        textAlign: 'left',
-    },
-    coordsText: { fontSize: '0.75rem', color: '#22c55e', marginTop: '0.25rem' },
-    manualCoords: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '0.75rem',
-        marginTop: '0.5rem',
-    },
-    coordInput: {
-        background: '#0f172a',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#f1f5f9',
-        fontSize: '0.82rem',
-        padding: '0.6rem 0.75rem',
-        outline: 'none',
-    },
-    input: {
-        background: '#0f172a',
-        border: '1px solid #334155',
-        borderRadius: '0.5rem',
-        color: '#f1f5f9',
-        fontSize: '0.875rem',
-        padding: '0.65rem 0.875rem',
-        outline: 'none',
-        width: '100%',
-        boxSizing: 'border-box',
-    },
-    fieldError: { fontSize: '0.75rem', color: '#f87171' },
-    aiNotice: {
-        display: 'flex',
-        gap: '0.625rem',
-        alignItems: 'flex-start',
-        background: '#0f172a',
-        borderRadius: '0.5rem',
-        padding: '0.75rem',
-        border: '1px solid #1e293b',
-    },
-    aiNoticeDot: { color: '#22d3ee', fontSize: '0.8rem', marginTop: '0.1rem', flexShrink: 0 },
-    aiNoticeText: { fontSize: '0.75rem', color: '#475569', lineHeight: 1.5 },
-    submitBtn: {
-        background: '#22d3ee',
-        border: 'none',
-        borderRadius: '0.625rem',
-        color: '#0f172a',
-        fontSize: '0.9rem',
-        fontWeight: 700,
-        padding: '0.8rem',
-        cursor: 'pointer',
-        letterSpacing: '0.01em',
-    },
-    // Success screen
-    successCard: {
-        maxWidth: '440px',
-        margin: '4rem auto',
-        background: '#1e293b',
-        border: '1px solid #334155',
-        borderRadius: '1rem',
-        padding: '2.5rem',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '1rem',
-    },
-    successIcon: { fontSize: '3rem' },
-    successHeading: { fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', margin: 0 },
-    successSub: { fontSize: '0.875rem', color: '#64748b', lineHeight: 1.6, margin: 0 },
-    aiResultBox: {
-        background: '#0f172a',
-        borderRadius: '0.625rem',
-        padding: '0.875rem 1.25rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.3rem',
-        width: '100%',
-        border: '1px solid #1e293b',
-    },
-    aiLabel: {
-        fontSize: '0.7rem',
-        color: '#475569',
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase',
-    },
-    aiCategory: { fontSize: '1rem', fontWeight: 700, color: '#22d3ee' },
-    aiSeverity: { fontSize: '0.8rem', color: '#94a3b8' },
-    successActions: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        width: '100%',
-        marginTop: '0.5rem',
-    },
-    btnPrimary: {
-        background: '#22d3ee',
-        border: 'none',
-        borderRadius: '0.625rem',
-        color: '#0f172a',
-        fontSize: '0.875rem',
-        fontWeight: 700,
-        padding: '0.75rem',
-        cursor: 'pointer',
-    },
-    btnSecondary: {
-        background: 'transparent',
-        border: '1px solid #334155',
-        borderRadius: '0.625rem',
-        color: '#94a3b8',
-        fontSize: '0.875rem',
-        padding: '0.7rem',
-        cursor: 'pointer',
-    },
-};
