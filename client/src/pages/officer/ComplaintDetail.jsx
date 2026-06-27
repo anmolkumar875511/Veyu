@@ -1,11 +1,13 @@
 // src/pages/officer/ComplaintDetail.jsx
+// Adds reassign panel (POST /officer/complaints/:id/reassign) + NotificationBell.
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
     getOfficerComplaintDetailApi,
     updateComplaintStatusApi,
     dispatchToWorkerApi,
+    reassignWorkerApi,
     getAvailableWorkersApi,
     parseOfficerError,
 } from '../../api/officer.api.js';
@@ -27,14 +29,14 @@ import {
     BtnGhost,
     Card,
 } from '../../components/officer/OfficerShell.jsx';
-import { color, font, space, radius, shadow, mk } from '../../theme/index.js';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { color, font, space, radius } from '../../theme/index.js';
 import {
     COMPLAINT_STATUS_LABELS,
     ASSIGNMENT_STATUS_LABELS,
     STATUS_META,
 } from '../../constants/complaint.constants.js';
 
-// ── Status history ────────────────────────────────────────────────────────────
 function StatusHistory({ history }) {
     if (!history?.length) return null;
     return (
@@ -98,10 +100,8 @@ function StatusHistory({ history }) {
     );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function OfficerComplaintDetail() {
     const { id } = useParams();
-    const navigate = useNavigate();
 
     const [complaint, setComplaint] = useState(null);
     const [assignment, setAssignment] = useState(null);
@@ -109,21 +109,23 @@ export default function OfficerComplaintDetail() {
     const [error, setError] = useState(null);
     const [actionErr, setActionErr] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
-
     const [showDispatch, setShowDispatch] = useState(false);
+    const [showReject, setShowReject] = useState(false);
+    const [showReassign, setShowReassign] = useState(false);
     const [workers, setWorkers] = useState([]);
     const [workersLoading, setWorkersLoading] = useState(false);
     const [selectedWorker, setSelectedWorker] = useState('');
+    const [newWorker, setNewWorker] = useState('');
     const [instructions, setInstructions] = useState('');
-
     const [rejectNote, setRejectNote] = useState('');
-    const [showReject, setShowReject] = useState(false);
+    const [reassignReason, setReassignReason] = useState('');
+    const [reassigning, setReassigning] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         try {
             const data = await getOfficerComplaintDetailApi(id);
             setComplaint(data.complaint);
-            setAssignment(data.assignment);
+            setAssignment(data.assignment ?? null);
             setError(null);
         } catch {
             setError('Could not load complaint details.');
@@ -140,8 +142,8 @@ export default function OfficerComplaintDetail() {
         setActionLoading(true);
         setActionErr(null);
         try {
-            const data = await updateComplaintStatusApi(id, { status: 'verified' });
-            setComplaint(data.complaint);
+            const d = await updateComplaintStatusApi(id, { status: 'verified' });
+            setComplaint(d.complaint);
         } catch (e) {
             setActionErr(parseOfficerError(e));
         } finally {
@@ -151,17 +153,17 @@ export default function OfficerComplaintDetail() {
 
     async function handleReject() {
         if (!rejectNote.trim()) {
-            setActionErr('Please provide a reason for rejection.');
+            setActionErr('Provide a rejection reason.');
             return;
         }
         setActionLoading(true);
         setActionErr(null);
         try {
-            const data = await updateComplaintStatusApi(id, {
+            const d = await updateComplaintStatusApi(id, {
                 status: 'rejected',
                 note: rejectNote.trim(),
             });
-            setComplaint(data.complaint);
+            setComplaint(d.complaint);
             setShowReject(false);
         } catch (e) {
             setActionErr(parseOfficerError(e));
@@ -170,14 +172,13 @@ export default function OfficerComplaintDetail() {
         }
     }
 
-    async function openDispatchPanel() {
-        setShowDispatch(true);
+    async function loadWorkers() {
         setWorkersLoading(true);
         try {
-            const data = await getAvailableWorkersApi(complaint.wardId?._id);
-            setWorkers(data.workers ?? []);
+            const d = await getAvailableWorkersApi(complaint.wardId?._id);
+            setWorkers(d.workers ?? []);
         } catch {
-            setActionErr('Could not load available workers.');
+            setActionErr('Could not load workers.');
         } finally {
             setWorkersLoading(false);
         }
@@ -185,17 +186,17 @@ export default function OfficerComplaintDetail() {
 
     async function handleDispatch() {
         if (!selectedWorker) {
-            setActionErr('Select a worker first.');
+            setActionErr('Select a worker.');
             return;
         }
         setActionLoading(true);
         setActionErr(null);
         try {
-            const data = await dispatchToWorkerApi(id, {
+            const d = await dispatchToWorkerApi(id, {
                 workerId: selectedWorker,
                 instructions: instructions.trim() || undefined,
             });
-            setComplaint(data.complaint);
+            setComplaint(d.complaint);
             setShowDispatch(false);
             fetchDetail();
         } catch (e) {
@@ -205,25 +206,68 @@ export default function OfficerComplaintDetail() {
         }
     }
 
-    if (loading) return <FullscreenState>Loading…</FullscreenState>;
-    if (error || !complaint) {
-        return (
-            <FullscreenState>
-                <p>{error ?? 'Complaint not found.'}</p>
-                <BackLink to="/war-room">← Back to war room</BackLink>
-            </FullscreenState>
-        );
+    async function handleReassign() {
+        if (!newWorker) {
+            setActionErr('Select a worker.');
+            return;
+        }
+        setReassigning(true);
+        setActionErr(null);
+        try {
+            await reassignWorkerApi(id, {
+                newWorkerId: newWorker,
+                reason: reassignReason.trim() || undefined,
+            });
+            setShowReassign(false);
+            fetchDetail();
+        } catch (e) {
+            setActionErr(parseOfficerError(e));
+        } finally {
+            setReassigning(false);
+        }
     }
 
+    if (loading) return <FullscreenState>Loading…</FullscreenState>;
+    if (error || !complaint)
+        return (
+            <FullscreenState>
+                <p>{error ?? 'Not found.'}</p>
+                <BackLink to="/war-room">← War Room</BackLink>
+            </FullscreenState>
+        );
+
     const statusColor = STATUS_META[complaint.status]?.color ?? color.textSecondary;
+    const isAssigned = ['assigned', 'in_progress'].includes(complaint.status);
+
+    const WorkerSelect = ({ value, onChange }) =>
+        workersLoading ? (
+            <span style={{ fontSize: font.size.sm, color: color.textMuted }}>Loading…</span>
+        ) : workers.length === 0 ? (
+            <span style={{ fontSize: font.size.sm, color: color.textMuted }}>
+                No workers available.
+            </span>
+        ) : (
+            <Select value={value} onChange={onChange}>
+                <option value="">Choose worker…</option>
+                {workers.map((w) => (
+                    <option key={w._id} value={w._id}>
+                        {w.name} — {w.activeTaskCount} active
+                    </option>
+                ))}
+            </Select>
+        );
 
     return (
         <PageShell>
             <NavBar
                 left={<BackLink to="/war-room">← War Room</BackLink>}
-                right={<NavTitle>Complaint Detail</NavTitle>}
+                right={
+                    <>
+                        <NotificationBell />
+                        <NavTitle>Complaint Detail</NavTitle>
+                    </>
+                }
             />
-
             <main
                 style={{
                     maxWidth: '1000px',
@@ -232,7 +276,7 @@ export default function OfficerComplaintDetail() {
                 }}
             >
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: space[6] }}>
-                    {/* ── Left: info ─────────────────────────────────────────── */}
+                    {/* LEFT */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
                         <img
                             src={complaint.imageUrl}
@@ -245,7 +289,6 @@ export default function OfficerComplaintDetail() {
                                 border: `1px solid ${color.borderDefault}`,
                             }}
                         />
-
                         <div
                             style={{
                                 display: 'flex',
@@ -279,7 +322,6 @@ export default function OfficerComplaintDetail() {
                                 {COMPLAINT_STATUS_LABELS[complaint.status]}
                             </span>
                         </div>
-
                         {complaint.cascadeRisk && (
                             <div
                                 style={{
@@ -291,22 +333,9 @@ export default function OfficerComplaintDetail() {
                                     color: '#fb923c',
                                 }}
                             >
-                                ⚡ Cascade risk — a nearby water/sewage complaint was recently
-                                verified.
-                                {complaint.cascadeSource && (
-                                    <span
-                                        style={{
-                                            color: '#fdba74',
-                                            fontWeight: font.weight.semibold,
-                                        }}
-                                    >
-                                        {' '}
-                                        Source: {complaint.cascadeSource.title}
-                                    </span>
-                                )}
+                                ⚡ Cascade risk detected nearby.
                             </div>
                         )}
-
                         {complaint.duplicateOf && (
                             <div
                                 style={{
@@ -318,10 +347,9 @@ export default function OfficerComplaintDetail() {
                                     color: color.textSecondary,
                                 }}
                             >
-                                🔁 Marked as duplicate of: {complaint.duplicateOf.title}
+                                🔁 Duplicate of: {complaint.duplicateOf.title}
                             </div>
                         )}
-
                         <p
                             style={{
                                 fontSize: font.size.base,
@@ -332,7 +360,6 @@ export default function OfficerComplaintDetail() {
                         >
                             {complaint.description}
                         </p>
-
                         <MetaGrid
                             items={[
                                 { label: 'Category', value: complaint.category },
@@ -348,7 +375,6 @@ export default function OfficerComplaintDetail() {
                                 { label: 'Upvotes', value: `▲ ${complaint.upvotes}` },
                             ]}
                         />
-
                         {complaint.address && (
                             <p
                                 style={{
@@ -360,21 +386,18 @@ export default function OfficerComplaintDetail() {
                                 📍 {complaint.address}
                             </p>
                         )}
-
                         <StatusHistory history={complaint.statusHistory} />
                     </div>
 
-                    {/* ── Right: actions ─────────────────────────────────────── */}
+                    {/* RIGHT */}
                     <div>
                         <Card style={{ position: 'sticky', top: '72px' }}>
                             <div
                                 style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}
                             >
                                 <SectionLabel>Actions</SectionLabel>
-
                                 <ErrorBanner message={actionErr} />
 
-                                {/* Submitted → verify or reject */}
                                 {complaint.status === 'submitted' && (
                                     <>
                                         <BtnPrimary
@@ -382,43 +405,40 @@ export default function OfficerComplaintDetail() {
                                             loading={actionLoading}
                                             loadingText="Verifying…"
                                         >
-                                            ✓ Verify Complaint
+                                            ✓ Verify
                                         </BtnPrimary>
                                         <BtnDanger onClick={() => setShowReject((v) => !v)}>
                                             ✗ Reject
                                         </BtnDanger>
                                         {showReject && (
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: space[2],
-                                                }}
-                                            >
+                                            <>
                                                 <Textarea
                                                     value={rejectNote}
                                                     onChange={(e) => setRejectNote(e.target.value)}
                                                     placeholder="Reason for rejection…"
                                                     rows={3}
-                                                />
+                                                reassignWorkerApi/>
                                                 <BtnDangerSolid
                                                     onClick={handleReject}
                                                     loading={actionLoading}
                                                 >
                                                     Confirm Rejection
                                                 </BtnDangerSolid>
-                                            </div>
+                                            </>
                                         )}
                                     </>
                                 )}
 
-                                {/* Verified → dispatch */}
                                 {complaint.status === 'verified' && !showDispatch && (
-                                    <BtnPrimary onClick={openDispatchPanel}>
+                                    <BtnPrimary
+                                        onClick={() => {
+                                            setShowDispatch(true);
+                                            loadWorkers();
+                                        }}
+                                    >
                                         📋 Dispatch to Worker
                                     </BtnPrimary>
                                 )}
-
                                 {showDispatch && (
                                     <div
                                         style={{
@@ -429,43 +449,15 @@ export default function OfficerComplaintDetail() {
                                             paddingTop: space[3],
                                         }}
                                     >
-                                        <SectionLabel>Select worker</SectionLabel>
-                                        {workersLoading ? (
-                                            <span
-                                                style={{
-                                                    fontSize: font.size.sm,
-                                                    color: color.textMuted,
-                                                }}
-                                            >
-                                                Loading workers…
-                                            </span>
-                                        ) : workers.length === 0 ? (
-                                            <span
-                                                style={{
-                                                    fontSize: font.size.sm,
-                                                    color: color.textMuted,
-                                                }}
-                                            >
-                                                No available workers in this ward.
-                                            </span>
-                                        ) : (
-                                            <Select
-                                                value={selectedWorker}
-                                                onChange={(e) => setSelectedWorker(e.target.value)}
-                                            >
-                                                <option value="">Choose a worker…</option>
-                                                {workers.map((w) => (
-                                                    <option key={w._id} value={w._id}>
-                                                        {w.name} — {w.activeTaskCount} active task
-                                                        {w.activeTaskCount !== 1 ? 's' : ''}
-                                                    </option>
-                                                ))}
-                                            </Select>
-                                        )}
+                                        <SectionLabel>Dispatch</SectionLabel>
+                                        <WorkerSelect
+                                            value={selectedWorker}
+                                            onChange={(e) => setSelectedWorker(e.target.value)}
+                                        />
                                         <Textarea
                                             value={instructions}
                                             onChange={(e) => setInstructions(e.target.value)}
-                                            placeholder="Instructions for worker (optional)"
+                                            placeholder="Instructions (optional)"
                                             rows={2}
                                         />
                                         <BtnPrimary
@@ -474,7 +466,7 @@ export default function OfficerComplaintDetail() {
                                             disabled={!selectedWorker}
                                             loadingText="Dispatching…"
                                         >
-                                            Confirm Dispatch
+                                            Confirm
                                         </BtnPrimary>
                                         <BtnGhost onClick={() => setShowDispatch(false)}>
                                             Cancel
@@ -482,54 +474,107 @@ export default function OfficerComplaintDetail() {
                                     </div>
                                 )}
 
-                                {/* Assigned/In-Progress → show worker */}
-                                {['assigned', 'in_progress'].includes(complaint.status) &&
-                                    assignment && (
-                                        <div
+                                {isAssigned && assignment && (
+                                    <div
+                                        style={{
+                                            borderTop: `1px solid ${color.borderDefault}`,
+                                            paddingTop: space[3],
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: space[2],
+                                        }}
+                                    >
+                                        <SectionLabel>Assigned worker</SectionLabel>
+                                        <p
                                             style={{
-                                                borderTop: `1px solid ${color.borderDefault}`,
-                                                paddingTop: space[3],
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: space[1],
+                                                fontSize: font.size.md,
+                                                fontWeight: font.weight.bold,
+                                                color: color.textPrimary,
+                                                margin: 0,
                                             }}
                                         >
-                                            <SectionLabel>Assigned worker</SectionLabel>
+                                            {assignment.workerId?.name}
+                                        </p>
+                                        <span
+                                            style={{
+                                                fontSize: font.size.xs,
+                                                color: '#a78bfa',
+                                                fontWeight: font.weight.semibold,
+                                            }}
+                                        >
+                                            {ASSIGNMENT_STATUS_LABELS[assignment.status]}
+                                        </span>
+                                        {assignment.instructions && (
                                             <p
                                                 style={{
-                                                    fontSize: font.size.md,
-                                                    fontWeight: font.weight.bold,
-                                                    color: color.textPrimary,
+                                                    fontSize: font.size.sm,
+                                                    color: color.textMuted,
+                                                    fontStyle: 'italic',
                                                     margin: 0,
                                                 }}
                                             >
-                                                {assignment.workerId?.name}
+                                                "{assignment.instructions}"
                                             </p>
-                                            <span
+                                        )}
+
+                                        {!showReassign && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowReassign(true);
+                                                    loadWorkers();
+                                                }}
                                                 style={{
+                                                    background: 'none',
+                                                    border: `1px solid ${color.borderDefault}`,
+                                                    borderRadius: radius.md,
+                                                    color: color.textMuted,
                                                     fontSize: font.size.xs,
-                                                    color: '#a78bfa',
-                                                    fontWeight: font.weight.semibold,
+                                                    padding: space[2],
+                                                    cursor: 'pointer',
                                                 }}
                                             >
-                                                {ASSIGNMENT_STATUS_LABELS[assignment.status]}
-                                            </span>
-                                            {assignment.instructions && (
-                                                <p
-                                                    style={{
-                                                        fontSize: font.size.sm,
-                                                        color: color.textMuted,
-                                                        fontStyle: 'italic',
-                                                        margin: `${space[1]} 0 0`,
-                                                    }}
+                                                ↺ Reassign
+                                            </button>
+                                        )}
+                                        {showReassign && (
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: space[2],
+                                                    borderTop: `1px solid ${color.borderDefault}`,
+                                                    paddingTop: space[2],
+                                                }}
+                                            >
+                                                <SectionLabel>Reassign to</SectionLabel>
+                                                <WorkerSelect
+                                                    value={newWorker}
+                                                    onChange={(e) => setNewWorker(e.target.value)}
+                                                />
+                                                <Textarea
+                                                    value={reassignReason}
+                                                    onChange={(e) =>
+                                                        setReassignReason(e.target.value)
+                                                    }
+                                                    placeholder="Reason (optional)"
+                                                    rows={2}
+                                                />
+                                                <BtnPrimary
+                                                    onClick={handleReassign}
+                                                    loading={reassigning}
+                                                    disabled={!newWorker}
+                                                    loadingText="Reassigning…"
                                                 >
-                                                    "{assignment.instructions}"
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
+                                                    Confirm
+                                                </BtnPrimary>
+                                                <BtnGhost onClick={() => setShowReassign(false)}>
+                                                    Cancel
+                                                </BtnGhost>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                                {/* Resolved */}
                                 {complaint.status === 'resolved' && (
                                     <div
                                         style={{
@@ -552,14 +597,13 @@ export default function OfficerComplaintDetail() {
                                         {complaint.resolutionImageUrl && (
                                             <img
                                                 src={complaint.resolutionImageUrl}
-                                                alt="Resolution proof"
+                                                alt="Resolution"
                                                 style={{ width: '100%', borderRadius: radius.sm }}
                                             />
                                         )}
                                     </div>
                                 )}
 
-                                {/* Rejected */}
                                 {complaint.status === 'rejected' && (
                                     <div
                                         style={{
@@ -571,7 +615,7 @@ export default function OfficerComplaintDetail() {
                                             color: '#f87171',
                                         }}
                                     >
-                                        ✗ This complaint was rejected.
+                                        ✗ Rejected
                                     </div>
                                 )}
                             </div>
