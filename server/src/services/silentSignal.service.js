@@ -88,38 +88,35 @@ async function detectSeasonalPatterns() {
     return patterns;
 }
 
-async function checkWeatherCorrelation(wardId, category) {
+function buildWeatherInfo(forecast, category) {
     if (!WEATHER_SENSITIVE_CATEGORIES.includes(category)) return null;
-
-    const forecast = await getRainForecast(5);
-    if (forecast.length === 0) return null;
+    if (!forecast || forecast.length === 0) return null;
 
     const peakRainDay = forecast.reduce(
         (max, d) => (d.rainMm > (max?.rainMm ?? 0) ? d : max),
         null
     );
-
     if (!peakRainDay || peakRainDay.rainMm < RAIN_EVENT_THRESHOLD_MM) return null;
-
-    const monsoonCount = await Complaint.countDocuments({
-        wardId,
-        category,
-        $expr: { $in: [{ $month: '$createdAt' }, [6, 7, 8, 9]] },
-    });
-    const totalCount = await Complaint.countDocuments({ wardId, category });
-
-    if (totalCount === 0) return null;
-
-    const monsoonShare = monsoonCount / totalCount;
-    if (monsoonShare < 0.5) return null;
 
     return {
         forecastDate: new Date(peakRainDay.date),
         forecastMm: peakRainDay.rainMm,
         condition: peakRainDay.condition,
         historicalThresholdMm: RAIN_EVENT_THRESHOLD_MM,
-        monsoonShare: Math.round(monsoonShare * 100) / 100,
     };
+}
+
+async function checkMonsoonShare(wardId, category) {
+    const [monsoonCount, totalCount] = await Promise.all([
+        Complaint.countDocuments({
+            wardId,
+            category,
+            $expr: { $in: [{ $month: '$createdAt' }, [6, 7, 8, 9]] },
+        }),
+        Complaint.countDocuments({ wardId, category }),
+    ]);
+    if (totalCount === 0) return 0;
+    return monsoonCount / totalCount;
 }
 
 async function notifyWardOfficer(wardId, forecast, wardName) {
@@ -141,6 +138,9 @@ async function notifyWardOfficer(wardId, forecast, wardName) {
 
 export async function generateForecasts() {
     const seasonalPatterns = await detectSeasonalPatterns();
+
+    const cityWeatherForecast = await getRainForecast(5);
+
     const created = [];
 
     for (const pattern of seasonalPatterns) {
@@ -154,10 +154,21 @@ export async function generateForecasts() {
         });
         if (existing) continue;
 
-        const weatherInfo = await checkWeatherCorrelation(wardId, category);
-
         const ward = await Ward.findById(wardId).select('name');
         const wardName = ward?.name ?? 'Unknown ward';
+
+        const baseWeatherInfo = buildWeatherInfo(cityWeatherForecast, category);
+        let weatherInfo = null;
+
+        if (baseWeatherInfo) {
+            const monsoonShare = await checkMonsoonShare(wardId, category);
+            if (monsoonShare >= 0.5) {
+                weatherInfo = {
+                    ...baseWeatherInfo,
+                    monsoonShare: Math.round(monsoonShare * 100) / 100,
+                };
+            }
+        }
 
         const predictedStartDate = new Date();
         const predictedEndDate = new Date(Date.now() + FORECAST_VALIDITY_DAYS * DAY_MS);
@@ -197,7 +208,6 @@ export async function generateForecasts() {
         });
 
         await notifyWardOfficer(wardId, forecast, wardName);
-
         created.push(forecast);
     }
 

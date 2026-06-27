@@ -80,13 +80,13 @@ function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
                 gap: space[4],
             }}
         >
-            {/* Card header */}
+            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: space[1],
+                        gap: '0.35rem',
                         fontSize: font.size.xs,
                         fontWeight: font.weight.semibold,
                     }}
@@ -115,6 +115,7 @@ function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'baseline',
+                        gap: space[2],
                     }}
                 >
                     <span
@@ -126,7 +127,7 @@ function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
                     >
                         {forecast.wardId?.name ?? 'Unknown ward'}
                     </span>
-                    <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
+                    <span style={{ fontSize: font.size.xs, color: color.textMuted, flexShrink: 0 }}>
                         {forecast.category}
                     </span>
                 </div>
@@ -191,7 +192,7 @@ function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
                 )}
             </div>
 
-            {/* Acknowledge button */}
+            {/* Acknowledge */}
             {isActive && (
                 <button
                     onClick={() => onAcknowledge(forecast._id)}
@@ -385,6 +386,7 @@ export default function OfficerForecasts() {
                                 color: color.textMuted,
                                 margin: 0,
                                 maxWidth: '420px',
+                                lineHeight: 1.6,
                             }}
                         >
                             Predictive alerts — issues the city hasn't reported yet, but
