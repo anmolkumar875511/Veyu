@@ -12,7 +12,7 @@ export const JWT_CONFIG = {
     },
 
     COOKIE: {
-        name: 'nagarik_refresh',
+        name: 'veyu_refresh',
         options: {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
