@@ -51,11 +51,7 @@ export async function listUsers(query = {}) {
 }
 
 export async function getUserDirectory(role) {
-    if (!role)
-        throw ApiError.badRequest(
-            'A role filter is required for the directory endpoint.',
-            'ROLE_REQUIRED'
-        );
+    if (!role) throw ApiError.badRequest('A role filter is required.', 'ROLE_REQUIRED');
 
     const users = await User.find({ role, isActive: true })
         .select('name email assignedWard')
@@ -81,7 +77,6 @@ export async function setUserActive(userId, isActive) {
 
     user.isActive = isActive;
     await user.save();
-
     return { user: user.toPublicJSON() };
 }
 
@@ -100,6 +95,7 @@ export async function changeUserRole(userId, newRole) {
     const losesWardEligibility = !['officer', 'worker'].includes(newRole);
 
     user.role = newRole;
+
     if (losesWardEligibility && user.assignedWard) {
         await Ward.updateMany({ officerId: user._id }, { $set: { officerId: null } });
         user.assignedWard = null;
