@@ -1,19 +1,19 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/usePolling.js
-//
+// ─────────────────────────────────────────────────────────────────────────────
 // Calls a fetch function on a set interval while the browser tab is visible.
-// Pauses automatically when the tab is hidden (saves API calls on free tier).
+// Pauses automatically when the tab is hidden — saves API quota on free tier.
 //
 // Usage:
-//   usePolling(fetchComplaints, 30_000);   // re-fetch every 30s while tab active
+//   usePolling(fetchComplaints, 30_000);           // poll every 30s
+//   usePolling(fetchQueue, 30_000, hasData);       // pause until first load
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef } from 'react';
 
 /**
- * @param {() => void | Promise<void>} fetchFn  — the function to call on each tick
- * @param {number}                     intervalMs — polling interval in ms (default 30s)
- * @param {boolean}                    [enabled=true] — set false to pause polling
+ * @param {() => void | Promise<void>} fetchFn  — function to call on each tick
+ * @param {number}  intervalMs  — polling interval in ms (default 30s)
+ * @param {boolean} [enabled=true] — set false to pause polling
  */
 export function usePolling(fetchFn, intervalMs = 30_000, enabled = true) {
     const fetchRef = useRef(fetchFn);
@@ -29,7 +29,6 @@ export function usePolling(fetchFn, intervalMs = 30_000, enabled = true) {
         let timerId = null;
 
         function tick() {
-            // Only poll when tab is visible — saves quota on free hosting
             if (!document.hidden) {
                 fetchRef.current();
             }
@@ -37,7 +36,6 @@ export function usePolling(fetchFn, intervalMs = 30_000, enabled = true) {
 
         function handleVisibilityChange() {
             if (!document.hidden) {
-                // Tab became visible — poll immediately then resume interval
                 tick();
             }
         }

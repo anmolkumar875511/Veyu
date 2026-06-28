@@ -1,7 +1,7 @@
 // src/pages/worker/Tasks.jsx
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
 import { usePolling } from '../../hooks/usePolling.js';
 import { getMyTasksApi, getWorkerSummaryApi } from '../../api/worker.api.js';
@@ -17,10 +17,10 @@ import {
     SkeletonRows,
     EmptyState,
 } from '../../components/worker/WorkerShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius, transition } from '../../theme/index.js';
 import { ASSIGNMENT_STATUS_LABELS, CATEGORY_ICONS } from '../../constants/complaint.constants.js';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function StatPill({ label, value, accent }) {
     return (
         <div
@@ -49,11 +49,9 @@ function StatPill({ label, value, accent }) {
     );
 }
 
-// ── Task card ─────────────────────────────────────────────────────────────────
 function TaskCard({ task, index, onClick }) {
     const complaint = task.complaintId;
     const icon = CATEGORY_ICONS[complaint?.category] ?? '📋';
-
     return (
         <div
             onClick={onClick}
@@ -83,9 +81,7 @@ function TaskCard({ task, index, onClick }) {
             >
                 {index + 1}
             </span>
-
             <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{icon}</span>
-
             <div
                 style={{
                     flex: 1,
@@ -116,7 +112,6 @@ function TaskCard({ task, index, onClick }) {
                     </span>
                 )}
             </div>
-
             <div
                 style={{
                     display: 'flex',
@@ -136,7 +131,6 @@ function TaskCard({ task, index, onClick }) {
     );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function WorkerTasks() {
     const user = useCurrentUser();
     const logout = useLogout();
@@ -165,7 +159,6 @@ export default function WorkerTasks() {
             .then(setSummary)
             .catch(() => {});
     }, []);
-
     usePolling(fetchTasks, 30_000, true);
 
     const firstName = user?.name?.split(' ')[0] ?? 'there';
@@ -177,11 +170,21 @@ export default function WorkerTasks() {
                 right={
                     <>
                         <NavAccentLink to="/observations">FieldMesh</NavAccentLink>
+                        <Link
+                            to="/profile"
+                            style={{
+                                fontSize: font.size.sm,
+                                color: color.textSecondary,
+                                textDecoration: 'none',
+                            }}
+                        >
+                            Profile
+                        </Link>
+                        <NotificationBell />
                         <NavLogout onClick={logout} />
                     </>
                 }
             />
-
             <main
                 style={{
                     maxWidth: '640px',
@@ -192,7 +195,6 @@ export default function WorkerTasks() {
                     gap: space[8],
                 }}
             >
-                {/* Greeting + stats */}
                 <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
                     <div
                         style={{
@@ -224,8 +226,8 @@ export default function WorkerTasks() {
                                 Your assigned tasks for today
                             </p>
                         </div>
-                        <a
-                            href="/observations"
+                        <Link
+                            to="/observations"
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -241,9 +243,8 @@ export default function WorkerTasks() {
                             }}
                         >
                             + Report Observation
-                        </a>
+                        </Link>
                     </div>
-
                     {summary && (
                         <div style={{ display: 'flex', gap: space[3], flexWrap: 'wrap' }}>
                             <StatPill
@@ -270,7 +271,6 @@ export default function WorkerTasks() {
                     )}
                 </section>
 
-                {/* Task feed */}
                 <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
                     <h2
                         style={{
@@ -282,11 +282,8 @@ export default function WorkerTasks() {
                     >
                         Today's Route
                     </h2>
-
                     <ErrorBanner message={error} />
-
                     {loading && <SkeletonRows count={3} height="80px" />}
-
                     {!loading && tasks.length === 0 && (
                         <EmptyState
                             icon="🎉"
@@ -296,7 +293,6 @@ export default function WorkerTasks() {
                             ctaTo="/observations"
                         />
                     )}
-
                     {!loading && tasks.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
                             {tasks.map((t, i) => (
