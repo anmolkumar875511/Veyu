@@ -22,6 +22,7 @@ import {
     Pagination,
     Card,
 } from '../../components/citizen/CitizenShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius, shadow, transition } from '../../theme/index.js';
 import {
     CATEGORY_ICONS,
@@ -560,7 +561,12 @@ export default function MyComplaints() {
                         My Reports
                     </span>
                 }
-                right={<NavLinkAccent to="/report">+ New</NavLinkAccent>}
+                right={
+                    <>
+                        <NotificationBell />
+                        <NavLinkAccent to="/report">+ New</NavLinkAccent>
+                    </>
+                }
             />
 
             <div style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>

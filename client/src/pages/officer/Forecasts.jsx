@@ -17,6 +17,7 @@ import {
     SkeletonGrid,
     EmptyState,
 } from '../../components/officer/OfficerShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius, transition, mk } from '../../theme/index.js';
 import {
     FORECAST_TRIGGER_META,
@@ -345,6 +346,7 @@ export default function OfficerForecasts() {
                     <>
                         <NavLink to="/war-room">War Room</NavLink>
                         <NavLink to="/reports">Ward Reports</NavLink>
+                        <NotificationBell />
                     </>
                 }
             />

@@ -11,6 +11,7 @@ import {
     ErrorBanner,
     SectionLabel,
 } from '../../components/officer/OfficerShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius } from '../../theme/index.js';
 import { COMPLAINT_STATUS_LABELS, STATUS_META } from '../../constants/complaint.constants.js';
 
@@ -249,7 +250,12 @@ export default function OfficerReports() {
         <PageShell>
             <NavBar
                 left={<BackLink to="/war-room">← War Room</BackLink>}
-                right={<NavTitle>Ward Reports</NavTitle>}
+                right={
+                    <>
+                        <NotificationBell />
+                        <NavTitle>Ward Reports</NavTitle>
+                    </>
+                }
             />
 
             <main

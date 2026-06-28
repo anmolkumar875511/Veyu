@@ -25,6 +25,7 @@ import {
     Card,
     SectionLabel,
 } from '../../components/worker/WorkerShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius, mk } from '../../theme/index.js';
 import {
     ASSIGNMENT_STATUS_LABELS,
@@ -140,7 +141,7 @@ export default function WorkerTaskDetail() {
             <NavBar
                 left={<BackLink to="/tasks">← Tasks</BackLink>}
                 center={<NavTitle>Task Detail</NavTitle>}
-                right={<span />}
+                right={<NotificationBell />}
             />
 
             <main

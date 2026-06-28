@@ -23,6 +23,7 @@ import {
     AIResultBox,
     PointsBadge,
 } from '../../components/worker/WorkerShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius } from '../../theme/index.js';
 
 // ── Observation history row ───────────────────────────────────────────────────
@@ -236,7 +237,7 @@ export default function WorkerObservations() {
             <NavBar
                 left={<BackLink to="/tasks">← Tasks</BackLink>}
                 center={<NavTitle>FieldMesh</NavTitle>}
-                right={<span />}
+                right={<NotificationBell />}
             />
 
             <main
