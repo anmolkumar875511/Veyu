@@ -1,4 +1,5 @@
 // src/pages/admin/WardManagement.jsx
+// Uses getUserDirectoryApi for real officer dropdown (replaces raw ID input).
 
 import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
@@ -10,6 +11,7 @@ import {
     recomputeAllStatsApi,
     parseWardError,
 } from '../../api/ward.api.js';
+import { getUserDirectoryApi } from '../../api/user.api.js';
 import {
     PageShell,
     NavBar,
@@ -28,11 +30,11 @@ import {
     Card,
     Modal,
 } from '../../components/admin/AdminShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius } from '../../theme/index.js';
 
 const EMPTY_FORM = { name: '', wardNumber: '', city: '' };
 
-// ── Ward row ──────────────────────────────────────────────────────────────────
 function WardRow({ ward, onAssignClick }) {
     return (
         <div
@@ -40,14 +42,13 @@ function WardRow({ ward, onAssignClick }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: space[4],
+                flexWrap: 'wrap',
                 background: color.bgSurface,
                 border: `1px solid ${color.borderDefault}`,
                 borderRadius: radius.xl,
                 padding: `${space[4]} ${space[5]}`,
-                flexWrap: 'wrap',
             }}
         >
-            {/* Name + meta */}
             <div
                 style={{
                     display: 'flex',
@@ -69,16 +70,12 @@ function WardRow({ ward, onAssignClick }) {
                     Ward {ward.wardNumber} · {ward.city}
                 </span>
             </div>
-
-            {/* Stress + health */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <StressBand band={ward.stressBand} />
                 <span style={{ fontSize: '0.68rem', color: color.textMuted }}>
                     Health {ward.healthScore}/100
                 </span>
             </div>
-
-            {/* Officer + assign */}
             <div
                 style={{ display: 'flex', alignItems: 'center', gap: space[3], marginLeft: 'auto' }}
             >
@@ -94,7 +91,7 @@ function WardRow({ ward, onAssignClick }) {
                             fontStyle: 'italic',
                         }}
                     >
-                        No officer assigned
+                        No officer
                     </span>
                 )}
                 <button
@@ -116,11 +113,11 @@ function WardRow({ ward, onAssignClick }) {
     );
 }
 
-// ── Create ward form ──────────────────────────────────────────────────────────
 function CreateWardForm({ onCreated }) {
     const [form, setForm] = useState(EMPTY_FORM);
     const [creating, setCreating] = useState(false);
     const [err, setErr] = useState(null);
+    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -140,8 +137,6 @@ function CreateWardForm({ onCreated }) {
             setCreating(false);
         }
     }
-
-    const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
     return (
         <Card>
@@ -163,7 +158,7 @@ function CreateWardForm({ onCreated }) {
                     <Input
                         value={form.name}
                         onChange={set('name')}
-                        placeholder="Ward name (e.g. Civil Lines)"
+                        placeholder="Ward name"
                         required
                     />
                     <Input
@@ -176,17 +171,14 @@ function CreateWardForm({ onCreated }) {
                     />
                     <Input value={form.city} onChange={set('city')} placeholder="City" required />
                 </div>
-                <div style={{ display: 'flex', gap: space[3] }}>
-                    <BtnPrimary type="submit" loading={creating} loadingText="Creating…">
-                        Create Ward
-                    </BtnPrimary>
-                </div>
+                <BtnPrimary type="submit" loading={creating} loadingText="Creating…">
+                    Create Ward
+                </BtnPrimary>
             </form>
         </Card>
     );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function WardManagement() {
     const user = useCurrentUser();
     const logout = useLogout();
@@ -196,7 +188,9 @@ export default function WardManagement() {
     const [error, setError] = useState(null);
     const [showCreate, setShowCreate] = useState(false);
     const [assignTarget, setAssignTarget] = useState(null);
-    const [officerInput, setOfficerInput] = useState('');
+    const [officers, setOfficers] = useState([]);
+    const [officersLoading, setOfficersLoading] = useState(false);
+    const [selectedOfficer, setSelectedOfficer] = useState('');
     const [assignErr, setAssignErr] = useState(null);
     const [assigning, setAssigning] = useState(false);
     const [recomputing, setRecomputing] = useState(false);
@@ -218,17 +212,31 @@ export default function WardManagement() {
         fetchWards();
     }, []);
 
+    async function openAssignModal(ward) {
+        setAssignTarget(ward);
+        setSelectedOfficer('');
+        setAssignErr(null);
+        setOfficersLoading(true);
+        try {
+            const data = await getUserDirectoryApi('officer');
+            setOfficers(data.users ?? []);
+        } catch {
+            setAssignErr('Could not load officers.');
+        } finally {
+            setOfficersLoading(false);
+        }
+    }
+
     async function handleAssign() {
-        if (!officerInput.trim()) {
-            setAssignErr('Enter an officer ID.');
+        if (!selectedOfficer) {
+            setAssignErr('Select an officer.');
             return;
         }
         setAssigning(true);
         setAssignErr(null);
         try {
-            await assignOfficerApi(assignTarget._id, officerInput.trim());
+            await assignOfficerApi(assignTarget._id, selectedOfficer);
             setAssignTarget(null);
-            setOfficerInput('');
             fetchWards();
         } catch (e) {
             setAssignErr(parseWardError(e));
@@ -258,12 +266,13 @@ export default function WardManagement() {
                 right={
                     <>
                         <NavLink to="/war-room">War Room</NavLink>
+                        <NavLink to="/admin/users">Users</NavLink>
+                        <NotificationBell />
                         <NavUser name={user?.name} />
                         <NavLogout onClick={logout} />
                     </>
                 }
             />
-
             <main
                 style={{
                     maxWidth: '800px',
@@ -274,12 +283,12 @@ export default function WardManagement() {
                     gap: space[6],
                 }}
             >
-                {/* Header */}
                 <div
                     style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'flex-start',
+                        flexWrap: 'wrap',
                         gap: space[4],
                     }}
                 >
@@ -305,7 +314,6 @@ export default function WardManagement() {
                     </BtnPrimary>
                 </div>
 
-                {/* Recompute toolbar */}
                 <div
                     style={{
                         display: 'flex',
@@ -324,12 +332,11 @@ export default function WardManagement() {
                         onClick={() => handleRecompute(recomputeAllStatsApi, 'Stats')}
                         disabled={recomputing}
                     >
-                        🔄 Recompute All Stats
+                        🔄 Recompute Stats
                     </ToolBtn>
-                    <SuccessMsg message={recomputeMsg} />
+                    {recomputeMsg && <SuccessMsg message={recomputeMsg} />}
                 </div>
 
-                {/* Create form */}
                 {showCreate && (
                     <CreateWardForm
                         onCreated={() => {
@@ -338,10 +345,8 @@ export default function WardManagement() {
                         }}
                     />
                 )}
-
                 <ErrorBanner message={error} />
 
-                {/* Ward list */}
                 {loading && <SkeletonRows count={3} height="76px" />}
 
                 {!loading && wards.length === 0 && (
@@ -353,46 +358,63 @@ export default function WardManagement() {
                             padding: space[8],
                         }}
                     >
-                        No wards yet. Create the first one above.
+                        No wards yet.
                     </p>
                 )}
 
                 {!loading && wards.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
                         {wards.map((w) => (
-                            <WardRow key={w._id} ward={w} onAssignClick={setAssignTarget} />
+                            <WardRow key={w._id} ward={w} onAssignClick={openAssignModal} />
                         ))}
                     </div>
                 )}
             </main>
 
-            {/* Assign officer modal */}
+            {/* Officer assign modal — uses real directory dropdown */}
             {assignTarget && (
                 <Modal
                     title={`Assign Officer — ${assignTarget.name}`}
                     onClose={() => {
                         setAssignTarget(null);
-                        setOfficerInput('');
                         setAssignErr(null);
                     }}
                 >
                     <ErrorBanner message={assignErr} />
-                    <Input
-                        value={officerInput}
-                        onChange={(e) => setOfficerInput(e.target.value)}
-                        placeholder="Officer user ID (MongoDB ObjectId)"
-                    />
-                    <p
-                        style={{
-                            fontSize: font.size.xs,
-                            color: color.textMuted,
-                            margin: 0,
-                            lineHeight: 1.6,
-                        }}
-                    >
-                        Paste the officer's MongoDB user ID. A searchable dropdown will replace this
-                        once a user directory endpoint is added.
-                    </p>
+                    {officersLoading ? (
+                        <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
+                            Loading officers…
+                        </p>
+                    ) : officers.length === 0 ? (
+                        <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
+                            No officers found. Create one at <strong>/admin/staff</strong>.
+                        </p>
+                    ) : (
+                        <select
+                            value={selectedOfficer}
+                            onChange={(e) => setSelectedOfficer(e.target.value)}
+                            style={{
+                                background: color.bgPage,
+                                border: `1px solid ${color.borderDefault}`,
+                                borderRadius: radius.md,
+                                color: color.textPrimary,
+                                fontSize: font.size.sm,
+                                padding: '0.6rem 0.75rem',
+                                width: '100%',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <option value="">Select an officer…</option>
+                            {officers.map((o) => (
+                                <option key={o._id} value={o._id}>
+                                    {o.name}{' '}
+                                    {o.assignedWard
+                                        ? `(Ward ${o.assignedWard.wardNumber})`
+                                        : '(unassigned)'}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                     <div style={{ display: 'flex', gap: space[3] }}>
                         <BtnPrimary
                             onClick={handleAssign}
@@ -404,7 +426,6 @@ export default function WardManagement() {
                         <BtnGhost
                             onClick={() => {
                                 setAssignTarget(null);
-                                setOfficerInput('');
                                 setAssignErr(null);
                             }}
                         >

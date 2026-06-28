@@ -19,10 +19,10 @@ import {
     Pagination,
     AccentLink,
 } from '../../components/citizen/CitizenShell.jsx';
-import { color, font, space, radius, shadow, transition } from '../../theme/index.js';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { color, font, space, radius, transition } from '../../theme/index.js';
 import { CATEGORY_ICONS } from '../../constants/complaint.constants.js';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function getGreeting() {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
@@ -33,9 +33,9 @@ function getGreeting() {
 function formatTimeAgo(dateStr) {
     if (!dateStr) return '';
     const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60_000);
-    const hours = Math.floor(diff / 3_600_000);
-    const days = Math.floor(diff / 86_400_000);
+    const mins = Math.floor(diff / 60_000),
+        hours = Math.floor(diff / 3_600_000),
+        days = Math.floor(diff / 86_400_000);
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins}m ago`;
     if (hours < 24) return `${hours}h ago`;
@@ -43,7 +43,6 @@ function formatTimeAgo(dateStr) {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-// ── StatCard ──────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accentColor, loading }) {
     return (
         <div
@@ -97,13 +96,15 @@ function StatCard({ label, value, sub, accentColor, loading }) {
     );
 }
 
-// ── ComplaintCard ─────────────────────────────────────────────────────────────
 function ComplaintCard({ complaint }) {
     const navigate = useNavigate();
     const icon = CATEGORY_ICONS[complaint.category] ?? '📋';
-
     return (
         <div
+            onClick={() => navigate('/my-reports')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/my-reports')}
             style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -115,55 +116,41 @@ function ComplaintCard({ complaint }) {
                 cursor: 'pointer',
                 transition: transition.fast,
             }}
-            onClick={() => navigate('/my-reports')}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && navigate('/my-reports')}
         >
             <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>{icon}</div>
-
             <div style={{ flex: 1, minWidth: 0 }}>
-                <div
+                <span
                     style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: space[2],
-                        marginBottom: space[1],
+                        display: 'block',
+                        fontSize: font.size.base,
+                        fontWeight: font.weight.semibold,
+                        color: color.textPrimary,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                     }}
                 >
-                    <span
-                        style={{
-                            fontSize: font.size.base,
-                            fontWeight: font.weight.semibold,
-                            color: color.textPrimary,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        {complaint.title}
-                    </span>
-                </div>
+                    {complaint.title}
+                </span>
                 <div
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.4rem',
                         flexWrap: 'wrap',
+                        marginTop: '0.2rem',
                     }}
                 >
                     <span style={{ fontSize: font.size.xs, color: color.textSecondary }}>
                         {complaint.category}
                     </span>
-                    <span style={{ color: color.borderDefault, fontSize: font.size.xs }}>·</span>
+                    <span style={{ color: color.borderDefault }}>·</span>
                     <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
                         {formatTimeAgo(complaint.createdAt)}
                     </span>
                     {complaint.upvotes > 0 && (
                         <>
-                            <span style={{ color: color.borderDefault, fontSize: font.size.xs }}>
-                                ·
-                            </span>
+                            <span style={{ color: color.borderDefault }}>·</span>
                             <span style={{ fontSize: font.size.xs, color: '#f59e0b' }}>
                                 ▲ {complaint.upvotes}
                             </span>
@@ -186,7 +173,6 @@ function ComplaintCard({ complaint }) {
                     </span>
                 )}
             </div>
-
             <div
                 style={{
                     display: 'flex',
@@ -203,7 +189,6 @@ function ComplaintCard({ complaint }) {
     );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function CitizenDashboard() {
     const user = useCurrentUser();
     const logout = useLogout();
@@ -236,7 +221,6 @@ export default function CitizenDashboard() {
         try {
             setCityStats(await getCityStatsApi());
         } catch {
-            /* non-fatal */
         } finally {
             setLoadingStats(false);
         }
@@ -261,11 +245,12 @@ export default function CitizenDashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: space[5] }}>
                         <NavLink to="/map">City Map</NavLink>
                         <NavLink to="/my-reports">My Reports</NavLink>
+                        <NavLink to="/profile">Profile</NavLink>
+                        <NotificationBell />
                         <NavButton onClick={logout}>Sign out</NavButton>
                     </div>
                 }
             />
-
             <main
                 style={{
                     maxWidth: '780px',
@@ -276,7 +261,6 @@ export default function CitizenDashboard() {
                     gap: space[10],
                 }}
             >
-                {/* Greeting */}
                 <section
                     style={{
                         display: 'flex',
@@ -307,7 +291,6 @@ export default function CitizenDashboard() {
                     <AccentLink to="/report">+ Report Issue</AccentLink>
                 </section>
 
-                {/* City stats */}
                 <section
                     style={{
                         display: 'grid',
@@ -349,7 +332,6 @@ export default function CitizenDashboard() {
                     />
                 </section>
 
-                {/* My Reports feed */}
                 <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
                     <div
                         style={{
@@ -381,7 +363,6 @@ export default function CitizenDashboard() {
                             </Link>
                         )}
                     </div>
-
                     <ErrorBanner
                         message={error}
                         onRetry={() => {
@@ -389,13 +370,11 @@ export default function CitizenDashboard() {
                             fetchComplaints(page);
                         }}
                     />
-
                     {loadingFeed && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
                             <Skeleton height="72px" count={3} />
                         </div>
                     )}
-
                     {!loadingFeed && !error && complaints.length === 0 && (
                         <EmptyState
                             heading="No reports yet"
@@ -404,7 +383,6 @@ export default function CitizenDashboard() {
                             ctaTo="/report"
                         />
                     )}
-
                     {!loadingFeed && complaints.length > 0 && (
                         <>
                             <div
@@ -425,7 +403,6 @@ export default function CitizenDashboard() {
                     )}
                 </section>
 
-                {/* Quick links */}
                 <section
                     style={{
                         display: 'grid',
@@ -444,9 +421,9 @@ export default function CitizenDashboard() {
                             to: '/my-reports',
                             icon: '📋',
                             label: 'My Reports',
-                            sub: 'Track all submissions',
+                            sub: 'Track submissions',
                         },
-                        { to: '/map', icon: '🗺️', label: 'City Map', sub: 'Live issue heatmap' },
+                        { to: '/map', icon: '🗺️', label: 'City Map', sub: 'Live heatmap' },
                     ].map(({ to, icon, label, sub }) => (
                         <Link
                             key={to}

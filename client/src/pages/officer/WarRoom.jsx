@@ -1,7 +1,7 @@
 // src/pages/officer/WarRoom.jsx
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
 import { usePolling } from '../../hooks/usePolling.js';
 import { getTriageQueueApi } from '../../api/officer.api.js';
@@ -20,8 +20,9 @@ import {
     FilterTabs,
     Pagination,
 } from '../../components/officer/OfficerShell.jsx';
+import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { color, font, space, radius, transition } from '../../theme/index.js';
-import { COMPLAINT_STATUS_LABELS, CATEGORY_ICONS } from '../../constants/complaint.constants.js';
+import { CATEGORY_ICONS } from '../../constants/complaint.constants.js';
 
 const FILTER_TABS = [
     { value: '', label: 'All Active' },
@@ -31,7 +32,6 @@ const FILTER_TABS = [
     { value: 'in_progress', label: 'In Progress' },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function formatTimeAgo(dateStr) {
     if (!dateStr) return '';
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -43,7 +43,18 @@ function formatTimeAgo(dateStr) {
     return `${days}d`;
 }
 
-// ── Queue row ─────────────────────────────────────────────────────────────────
+const td = { padding: `0.75rem 0.875rem`, verticalAlign: 'middle' };
+const th = {
+    textAlign: 'left',
+    fontSize: '0.68rem',
+    fontWeight: font.weight.bold,
+    color: color.textMuted,
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+    padding: `0.75rem 0.875rem`,
+    borderBottom: `1px solid ${color.borderDefault}`,
+};
+
 function QueueRow({ complaint, onClick }) {
     const icon = CATEGORY_ICONS[complaint.category] ?? '📋';
     return (
@@ -53,19 +64,9 @@ function QueueRow({ complaint, onClick }) {
                 cursor: 'pointer',
                 borderBottom: `1px solid ${color.borderFaint}`,
                 background: complaint.cascadeRisk ? '#7c2d1208' : 'transparent',
-                transition: transition.fast,
             }}
         >
-            <td style={td}>
-                {complaint.cascadeRisk && (
-                    <span
-                        title="Cascade risk — nearby water issue verified"
-                        style={{ fontSize: '0.9rem' }}
-                    >
-                        ⚡
-                    </span>
-                )}
-            </td>
+            <td style={td}>{complaint.cascadeRisk && <span title="Cascade risk">⚡</span>}</td>
             <td style={td}>
                 <span style={{ fontSize: '1.1rem' }}>{icon}</span>
             </td>
@@ -106,7 +107,7 @@ function QueueRow({ complaint, onClick }) {
                         ▲ {complaint.upvotes}
                     </span>
                 ) : (
-                    <span style={{ color: color.borderDefault, fontSize: font.size.sm }}>—</span>
+                    <span style={{ color: color.borderDefault }}>—</span>
                 )}
             </td>
             <td style={td}>
@@ -121,19 +122,6 @@ function QueueRow({ complaint, onClick }) {
     );
 }
 
-const td = { padding: `0.75rem 0.875rem`, verticalAlign: 'middle' };
-const th = {
-    textAlign: 'left',
-    fontSize: '0.68rem',
-    fontWeight: font.weight.bold,
-    color: color.textMuted,
-    letterSpacing: font.tracking.wide,
-    textTransform: 'uppercase',
-    padding: `0.75rem 0.875rem`,
-    borderBottom: `1px solid ${color.borderDefault}`,
-};
-
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function WarRoom() {
     const user = useCurrentUser();
     const logout = useLogout();
@@ -175,7 +163,6 @@ export default function WarRoom() {
         setStatusTab(val);
         setPage(1);
     }
-
     const cascadeCount = complaints.filter((c) => c.cascadeRisk).length;
 
     return (
@@ -185,13 +172,14 @@ export default function WarRoom() {
                 right={
                     <>
                         <NavLink to="/forecasts">SilentSignal</NavLink>
-                        <NavLink to="/reports">Ward Reports</NavLink>
+                        <NavLink to="/reports">Reports</NavLink>
+                        <NavLink to="/profile">Profile</NavLink>
+                        <NotificationBell />
                         <NavUser name={user?.name} />
                         <NavLogout onClick={logout} />
                     </>
                 }
             />
-
             <main
                 style={{
                     maxWidth: '1080px',
@@ -199,7 +187,6 @@ export default function WarRoom() {
                     padding: `${space[6]} ${space[6]} ${space[16]}`,
                 }}
             >
-                {/* Header */}
                 <div style={{ marginBottom: space[5] }}>
                     <h1
                         style={{
@@ -225,15 +212,11 @@ export default function WarRoom() {
                 </div>
 
                 <FilterTabs tabs={FILTER_TABS} active={statusTab} onChange={handleTabChange} />
-
                 <ErrorBanner message={error} onRetry={() => fetchQueue(page, statusTab)} />
-
                 {loading && <SkeletonRows count={5} height="52px" />}
-
                 {!loading && complaints.length === 0 && (
-                    <EmptyState icon="✅" heading="No complaints in this queue. All clear." />
+                    <EmptyState icon="✅" heading="No complaints in this queue." />
                 )}
-
                 {!loading && complaints.length > 0 && (
                     <div
                         style={{
@@ -267,7 +250,6 @@ export default function WarRoom() {
                         </table>
                     </div>
                 )}
-
                 <Pagination
                     page={page}
                     totalPages={totalPages}

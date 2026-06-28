@@ -417,7 +417,8 @@ export default function OfficerComplaintDetail() {
                                                     onChange={(e) => setRejectNote(e.target.value)}
                                                     placeholder="Reason for rejection…"
                                                     rows={3}
-                                                reassignWorkerApi/>
+                                                    reassignWorkerApi
+                                                />
                                                 <BtnDangerSolid
                                                     onClick={handleReject}
                                                     loading={actionLoading}
