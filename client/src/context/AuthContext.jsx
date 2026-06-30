@@ -1,15 +1,12 @@
 // src/context/AuthContext.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Auth state machine via useReducer.
-// Session event key updated: 'nagarik:session-expired' → 'veyu:session-expired'
-// Must match the constant in api/axios.instance.js.
-// ─────────────────────────────────────────────────────────────────────────────
+// Changes:
+//   - register() now calls verifyOtpApi (OTP step 2) instead of registerApi
+//   - dispatch is exported so GoogleSuccessPage can hydrate auth state directly
 
 import { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
-import { loginApi, logoutApi, refreshApi, registerApi, parseAuthError } from '../api/auth.api.js';
+import { loginApi, logoutApi, refreshApi, verifyOtpApi, parseAuthError } from '../api/auth.api.js';
 import { setAccessToken, clearAccessToken } from '../api/tokenStore.js';
 
-// Shared with axios.instance.js — keep in sync
 export const SESSION_EXPIRED_EVENT = 'veyu:session-expired';
 
 const initialState = {
@@ -23,7 +20,6 @@ function authReducer(state, action) {
     switch (action.type) {
         case 'AUTH_LOADING':
             return { ...state, isLoading: true, error: null };
-
         case 'AUTH_SUCCESS':
             return {
                 user: action.payload.user,
@@ -31,7 +27,6 @@ function authReducer(state, action) {
                 isLoading: false,
                 error: null,
             };
-
         case 'AUTH_FAILURE':
             return {
                 user: null,
@@ -39,13 +34,10 @@ function authReducer(state, action) {
                 isLoading: false,
                 error: action.payload ?? null,
             };
-
         case 'AUTH_LOGOUT':
             return { ...initialState, isLoading: false };
-
         case 'CLEAR_ERROR':
             return { ...state, error: null };
-
         default:
             return state;
     }
@@ -56,7 +48,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
     const [state, dispatch] = useReducer(authReducer, initialState);
 
-    // Restore session on mount via httpOnly refresh cookie
+    // Restore session via httpOnly refresh cookie on mount
     useEffect(() => {
         async function restoreSession() {
             try {
@@ -70,7 +62,7 @@ export function AuthProvider({ children }) {
         restoreSession();
     }, []);
 
-    // Listen for session-expired events fired by the axios interceptor
+    // Listen for session-expired events from the Axios interceptor
     useEffect(() => {
         function handleSessionExpired() {
             clearAccessToken();
@@ -94,10 +86,11 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
+    // register = OTP step 2: verifyOtp({ name, email, password, phone, code })
     const register = useCallback(async (formData) => {
         dispatch({ type: 'AUTH_LOADING' });
         try {
-            const { user, accessToken } = await registerApi(formData);
+            const { user, accessToken } = await verifyOtpApi(formData);
             setAccessToken(accessToken);
             dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
             return { success: true };
@@ -128,6 +121,8 @@ export function AuthProvider({ children }) {
         register,
         logout,
         clearError,
+        // Exposed so GoogleSuccessPage can hydrate auth state without a full refresh cycle
+        dispatch,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

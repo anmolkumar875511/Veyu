@@ -1,4 +1,4 @@
-// src/AppRouter.jsx — complete route tree for Veyu. Every backend route has a frontend page.
+// src/AppRouter.jsx — complete route tree for Veyu including OTP + Google OAuth.
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
@@ -10,6 +10,7 @@ const LoginPage = lazy(() => import('./pages/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage.jsx'));
 const UnauthorizedPage = lazy(() => import('./pages/auth/UnauthorizedPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/auth/ProfilePage.jsx'));
+const GoogleSuccessPage = lazy(() => import('./pages/auth/GoogleSuccessPage.jsx'));
 
 // ── Citizen
 const CitizenDashboard = lazy(() => import('./pages/citizen/Dashboard.jsx'));
@@ -64,13 +65,16 @@ export default function AppRouter() {
                         <Route path="/map" element={<PublicNerveMap />} />
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-                        {/* ── Auth (redirect if logged in) ─────────────────── */}
+                        {/* ── Google OAuth success handler (public — reads URL token) ── */}
+                        <Route path="/auth/google/success" element={<GoogleSuccessPage />} />
+
+                        {/* ── Auth pages (redirect if already logged in) ─── */}
                         <Route element={<PublicOnlyRoute />}>
                             <Route path="/login" element={<LoginPage />} />
                             <Route path="/register" element={<RegisterPage />} />
                         </Route>
 
-                        {/* ── All authenticated roles — profile + password ──── */}
+                        {/* ── All authenticated roles — profile + password ── */}
                         <Route element={<ProtectedRoute />}>
                             <Route path="/profile" element={<ProfilePage />} />
                         </Route>

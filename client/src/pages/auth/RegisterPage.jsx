@@ -1,8 +1,10 @@
 // src/pages/auth/RegisterPage.jsx
+// Two-step flow: fill form → OTP arrives in email → enter code → logged in.
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { sendOtpApi, getGoogleAuthUrl, parseAuthError } from '../../api/auth.api.js';
 import { getRoleHome } from '../../guards/RouteGuards.jsx';
 import {
     AuthPage,
@@ -14,8 +16,9 @@ import {
     TextInput,
     PasswordInput,
     PrimaryButton,
-} from '../../components/AuthShell.jsx';
-import { mk, space, font, color } from '../../theme/index.js';
+    Divider,
+} from '../../components/auth/AuthShell.jsx';
+import { mk, space, font, color, radius } from '../../theme/index.js';
 
 const INITIAL_FORM = { name: '', email: '', phone: '', password: '' };
 
@@ -32,44 +35,232 @@ function validateClient(form) {
     return errs;
 }
 
-export default function RegisterPage() {
-    const { register, isLoading, error, clearError, user } = useAuth();
+// ── OTP entry sub-screen ───────────────────────────────────────────────────────
+function OtpScreen({ form, onSuccess, onBack }) {
+    const { register } = useAuth();
     const navigate = useNavigate();
 
+    const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [resending, setResending] = useState(false);
+    const [resendMsg, setResendMsg] = useState(null);
+
+    async function handleVerify(e) {
+        e.preventDefault();
+        if (code.length !== 6) {
+            setError('Enter the 6-digit code from your email.');
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            // Use AuthContext register which calls verifyOtpApi internally
+            const result = await register({ ...form, code });
+            if (result.success) {
+                navigate(getRoleHome('citizen'), { replace: true });
+            } else {
+                setError(result.error);
+            }
+        } catch (err) {
+            setError(parseAuthError(err));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleResend() {
+        setResending(true);
+        setResendMsg(null);
+        setError(null);
+        try {
+            await sendOtpApi(form);
+            setResendMsg('New OTP sent — check your inbox.');
+        } catch (err) {
+            setError(parseAuthError(err));
+        } finally {
+            setResending(false);
+        }
+    }
+
+    return (
+        <AuthCard maxWidth="420px">
+            <BrandMark />
+            <button
+                onClick={onBack}
+                style={{
+                    background: 'none',
+                    border: 'none',
+                    color: color.textMuted,
+                    fontSize: font.size.sm,
+                    cursor: 'pointer',
+                    alignSelf: 'flex-start',
+                    padding: 0,
+                    marginBottom: space[2],
+                }}
+            >
+                ← Back
+            </button>
+
+            <AuthHeading
+                title="Check your email"
+                subtitle={`We sent a 6-digit code to ${form.email}. Enter it below to confirm your account.`}
+            />
+
+            <ErrorBanner message={error} />
+
+            <form
+                onSubmit={handleVerify}
+                style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}
+                noValidate
+            >
+                {/* OTP input — single large field */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                    <label
+                        style={{
+                            fontSize: font.size.sm,
+                            fontWeight: font.weight.medium,
+                            color: color.textSecondary,
+                        }}
+                    >
+                        Verification code
+                    </label>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={6}
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        style={{
+                            background: color.bgPage,
+                            border: `1px solid ${color.borderDefault}`,
+                            borderRadius: radius.md,
+                            color: color.textPrimary,
+                            fontSize: '1.75rem',
+                            fontWeight: font.weight.bold,
+                            fontFamily: 'monospace',
+                            letterSpacing: '0.25em',
+                            padding: '0.75rem',
+                            outline: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            textAlign: 'center',
+                        }}
+                        autoFocus
+                        autoComplete="one-time-code"
+                    />
+                </div>
+
+                <PrimaryButton
+                    loading={loading}
+                    loadingText="Verifying…"
+                    disabled={code.length !== 6}
+                >
+                    Verify & Create Account
+                </PrimaryButton>
+            </form>
+
+            <div
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: space[2],
+                    marginTop: space[4],
+                }}
+            >
+                {resendMsg && (
+                    <span style={{ fontSize: font.size.xs, color: color.success }}>
+                        {resendMsg}
+                    </span>
+                )}
+                <button
+                    onClick={handleResend}
+                    disabled={resending}
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        color: color.accent,
+                        fontSize: font.size.sm,
+                        cursor: 'pointer',
+                        opacity: resending ? 0.6 : 1,
+                    }}
+                >
+                    {resending ? 'Sending…' : "Didn't receive it? Resend OTP"}
+                </button>
+                <p style={{ fontSize: font.size.xs, color: color.textMuted, margin: 0 }}>
+                    Code expires in 10 minutes
+                </p>
+            </div>
+        </AuthCard>
+    );
+}
+
+// ── Registration form ─────────────────────────────────────────────────────────
+export default function RegisterPage() {
     const [form, setForm] = useState(INITIAL_FORM);
     const [fieldErrors, setFieldErrors] = useState({});
+    const [sending, setSending] = useState(false);
+    const [error, setError] = useState(null);
+    const [step, setStep] = useState('form'); // 'form' | 'otp'
 
     function handleChange(e) {
-        if (error) clearError();
         const { name, value } = e.target;
         setForm((f) => ({ ...f, [name]: value }));
-        if (fieldErrors[name]) {
+        if (fieldErrors[name])
             setFieldErrors((fe) => {
                 const n = { ...fe };
                 delete n[name];
                 return n;
             });
-        }
+        if (error) setError(null);
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
-        const clientErrors = validateClient(form);
-        if (Object.keys(clientErrors).length > 0) {
-            setFieldErrors(clientErrors);
+        const errs = validateClient(form);
+        if (Object.keys(errs).length > 0) {
+            setFieldErrors(errs);
             return;
         }
 
-        const payload = { name: form.name.trim(), email: form.email, password: form.password };
-        if (form.phone) payload.phone = form.phone;
-
-        const result = await register(payload);
-        if (result.success) {
-            // ✅ FIX: use role from auth state, not hardcoded 'citizen'
-            navigate(getRoleHome(user?.role ?? 'citizen'), { replace: true });
+        setSending(true);
+        setError(null);
+        try {
+            await sendOtpApi({
+                name: form.name.trim(),
+                email: form.email,
+                password: form.password,
+                phone: form.phone || undefined,
+            });
+            setStep('otp');
+        } catch (err) {
+            setError(parseAuthError(err));
+        } finally {
+            setSending(false);
         }
     }
 
+    // ── OTP screen ────────────────────────────────────────────────────────────
+    if (step === 'otp') {
+        return (
+            <AuthPage>
+                <OtpScreen
+                    form={{
+                        name: form.name.trim(),
+                        email: form.email,
+                        password: form.password,
+                        phone: form.phone || undefined,
+                    }}
+                    onBack={() => setStep('form')}
+                />
+            </AuthPage>
+        );
+    }
+
+    // ── Registration form ─────────────────────────────────────────────────────
     return (
         <AuthPage>
             <AuthCard maxWidth="440px">
@@ -79,6 +270,32 @@ export default function RegisterPage() {
                     subtitle="Report issues. Track resolution. Build accountability."
                 />
                 <ErrorBanner message={error} />
+
+                {/* Google OAuth button */}
+                <button
+                    type="button"
+                    onClick={() => (window.location.href = getGoogleAuthUrl())}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: space[3],
+                        width: '100%',
+                        background: color.bgSurface,
+                        border: `1px solid ${color.borderDefault}`,
+                        borderRadius: radius.md,
+                        color: color.textPrimary,
+                        fontSize: font.size.base,
+                        fontWeight: font.weight.semibold,
+                        padding: '0.7rem',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <GoogleIcon />
+                    Continue with Google
+                </button>
+
+                <Divider label="or register with email" />
 
                 <form
                     onSubmit={handleSubmit}
@@ -141,8 +358,8 @@ export default function RegisterPage() {
                         />
                     </FormField>
 
-                    <PrimaryButton loading={isLoading} loadingText="Creating account…">
-                        Create account
+                    <PrimaryButton loading={sending} loadingText="Sending OTP…">
+                        Send Verification Code
                     </PrimaryButton>
                 </form>
 
@@ -166,5 +383,34 @@ export default function RegisterPage() {
                 </p>
             </AuthCard>
         </AuthPage>
+    );
+}
+
+function GoogleIcon() {
+    return (
+        <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <path
+                d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.12 17.64 11.84 17.64 9.2z"
+                fill="#4285F4"
+            />
+            <path
+                d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
+                fill="#34A853"
+            />
+            <path
+                d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
+                fill="#FBBC05"
+            />
+            <path
+                d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
+                fill="#EA4335"
+            />
+        </svg>
     );
 }

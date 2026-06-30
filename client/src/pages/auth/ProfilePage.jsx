@@ -1,10 +1,6 @@
 // src/pages/auth/ProfilePage.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Available to all authenticated roles via /profile.
-// Covers:
-//   PATCH /users/me        — update name, phone, avatar URL
-//   PATCH /auth/password   — change password (invalidates session)
-// ─────────────────────────────────────────────────────────────────────────────
+// Covers: PATCH /users/me + PATCH /auth/password
+// Google-only users (no password) see profile edit but not password change.
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -56,11 +52,14 @@ export default function ProfilePage() {
         }
     }
 
-    // ── Password form ─────────────────────────────────────────────────────────
+    // ── Change password (hidden for Google-only accounts) ─────────────────────
+    const isGoogleOnly = !!user?.googleId && !user?.hasPassword;
+
     const [curPass, setCurPass] = useState('');
     const [newPass, setNewPass] = useState('');
     const [changing, setChanging] = useState(false);
     const [passErr, setPassErr] = useState(null);
+    const [passOk, setPassOk] = useState(false);
 
     async function handlePasswordChange(e) {
         e.preventDefault();
@@ -72,8 +71,10 @@ export default function ProfilePage() {
         setPassErr(null);
         try {
             await changePasswordApi({ currentPassword: curPass, newPassword: newPass });
-            // Password change invalidates session — log out and redirect to login
-            await logout();
+            setPassOk(true);
+            setTimeout(async () => {
+                await logout();
+            }, 1500);
         } catch (err) {
             setPassErr(err.response?.data?.message ?? 'Could not change password.');
             setChanging(false);
@@ -93,7 +94,6 @@ export default function ProfilePage() {
             <AuthCard maxWidth="480px">
                 <BrandMark />
 
-                {/* Back link */}
                 <button
                     onClick={() => navigate(getRoleHome(user?.role))}
                     style={{
@@ -121,7 +121,7 @@ export default function ProfilePage() {
                     My Profile
                 </h1>
 
-                {/* ── Profile section ──────────────────────────────────────── */}
+                {/* ── Profile ──────────────────────────────────────────────── */}
                 <h2 style={sectionHead}>Account details</h2>
 
                 <ErrorBanner message={profileErr} />
@@ -135,6 +135,27 @@ export default function ProfilePage() {
                     >
                         ✓ Profile updated.
                     </p>
+                )}
+
+                {/* Google badge */}
+                {user?.googleId && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: space[2],
+                            background: color.bgPage,
+                            border: `1px solid ${color.borderFaint}`,
+                            borderRadius: radius.md,
+                            padding: `${space[2]} ${space[3]}`,
+                            marginBottom: space[4],
+                            fontSize: font.size.xs,
+                            color: color.textSecondary,
+                        }}
+                    >
+                        <GoogleIcon size={14} />
+                        Signed in with Google
+                    </div>
                 )}
 
                 <form
@@ -188,11 +209,14 @@ export default function ProfilePage() {
                         )}
                     </FormField>
 
-                    {/* Role + reputation display */}
                     <div style={{ display: 'flex', gap: space[4] }}>
                         {[
                             { label: 'Role', value: user?.role ?? '—' },
                             { label: 'Reputation', value: `${user?.reputationScore ?? 0} pts` },
+                            {
+                                label: 'Status',
+                                value: user?.isVerified ? 'Verified' : 'Unverified',
+                            },
                         ].map(({ label, value }) => (
                             <div
                                 key={label}
@@ -227,61 +251,118 @@ export default function ProfilePage() {
                     </PrimaryButton>
                 </form>
 
-                <div style={divider} />
+                {/* ── Change password — hidden for Google-only accounts ──────── */}
+                {isGoogleOnly ? (
+                    <>
+                        <div style={divider} />
+                        <div
+                            style={{
+                                background: color.bgPage,
+                                border: `1px solid ${color.borderFaint}`,
+                                borderRadius: radius.md,
+                                padding: `${space[4]}`,
+                                fontSize: font.size.sm,
+                                color: color.textMuted,
+                                lineHeight: 1.6,
+                            }}
+                        >
+                            🔒 Your account uses Google sign-in. Password management is handled by
+                            Google.
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div style={divider} />
+                        <h2 style={sectionHead}>Change password</h2>
+                        <p
+                            style={{
+                                fontSize: font.size.sm,
+                                color: color.textMuted,
+                                margin: `0 0 ${space[4]} 0`,
+                            }}
+                        >
+                            You'll be signed out after changing your password.
+                        </p>
 
-                {/* ── Change password section ───────────────────────────────── */}
-                <h2 style={sectionHead}>Change password</h2>
-                <p
-                    style={{
-                        fontSize: font.size.sm,
-                        color: color.textMuted,
-                        margin: `0 0 ${space[4]} 0`,
-                    }}
-                >
-                    You'll be logged out after changing your password.
-                </p>
+                        <ErrorBanner message={passErr} />
+                        {passOk && (
+                            <p style={{ fontSize: font.size.sm, color: color.success, margin: 0 }}>
+                                ✓ Password updated. Signing you out…
+                            </p>
+                        )}
 
-                <ErrorBanner message={passErr} />
+                        <form
+                            onSubmit={handlePasswordChange}
+                            style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
+                            noValidate
+                        >
+                            <FormField label="Current password" htmlFor="curPass">
+                                <TextInput
+                                    id="curPass"
+                                    type="password"
+                                    autoComplete="current-password"
+                                    value={curPass}
+                                    onChange={(e) => setCurPass(e.target.value)}
+                                    placeholder="••••••••"
+                                />
+                            </FormField>
 
-                <form
-                    onSubmit={handlePasswordChange}
-                    style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
-                    noValidate
-                >
-                    <FormField label="Current password" htmlFor="curPass">
-                        <TextInput
-                            id="curPass"
-                            type="password"
-                            autoComplete="current-password"
-                            value={curPass}
-                            onChange={(e) => setCurPass(e.target.value)}
-                            placeholder="••••••••"
-                        />
-                    </FormField>
+                            <FormField label="New password" htmlFor="newPass">
+                                <TextInput
+                                    id="newPass"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    value={newPass}
+                                    onChange={(e) => setNewPass(e.target.value)}
+                                    placeholder="At least 6 characters"
+                                />
+                            </FormField>
 
-                    <FormField label="New password" htmlFor="newPass">
-                        <TextInput
-                            id="newPass"
-                            type="password"
-                            autoComplete="new-password"
-                            value={newPass}
-                            onChange={(e) => setNewPass(e.target.value)}
-                            placeholder="At least 6 characters"
-                        />
-                    </FormField>
-
-                    <button
-                        type="submit"
-                        disabled={changing || !curPass || !newPass}
-                        style={{
-                            ...mk.btnPrimary({ disabled: changing || !curPass || !newPass }),
-                            background: color.danger,
-                        }}
-                    >
-                        {changing ? 'Updating…' : 'Update password'}
-                    </button>
-                </form>
+                            <button
+                                type="submit"
+                                disabled={changing || !curPass || !newPass}
+                                style={{
+                                    ...mk.btnPrimary({
+                                        disabled: changing || !curPass || !newPass,
+                                    }),
+                                    background: color.danger,
+                                }}
+                            >
+                                {changing ? 'Updating…' : 'Update password'}
+                            </button>
+                        </form>
+                    </>
+                )}
             </AuthCard>
         </AuthPage>
+    );
+}
+
+function GoogleIcon({ size = 16 }) {
+    return (
+        <svg
+            width={size}
+            height={size}
+            viewBox="0 0 18 18"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <path
+                d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.12 17.64 11.84 17.64 9.2z"
+                fill="#4285F4"
+            />
+            <path
+                d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
+                fill="#34A853"
+            />
+            <path
+                d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
+                fill="#FBBC05"
+            />
+            <path
+                d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
+                fill="#EA4335"
+            />
+        </svg>
     );
 }
