@@ -3,28 +3,22 @@
     <head>
         <meta charset="UTF-8" />
 
-        <!-- Favicon -->
-        <link rel="icon" type="image/png" href="/favicon.png" />
-        <link rel="apple-touch-icon" href="/favicon.png" />
+        <!-- Favicon — SVG scales cleanly across all sizes, no PNG fallbacks needed -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="apple-touch-icon" href="/favicon.svg" />
 
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <!-- Primary meta -->
         <title>Veyu — Civic Intelligence Platform</title>
-        <meta
-            name="description"
-            content="Report civic issues, track resolution, and hold your city accountable. Powered by AI."
-        />
+        <meta name="description" content="Report civic issues, track resolution, and hold your city accountable. Powered by AI." />
         <meta name="theme-color" content="#09111f" />
 
         <!-- Open Graph -->
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content="Veyu — Civic Intelligence Platform" />
-        <meta
-            property="og:description"
-            content="Report civic issues, track resolution, and hold your city accountable."
-        />
-        <meta property="og:image" content="/favicon.png" />
+        <meta property="og:type"        content="website" />
+        <meta property="og:title"       content="Veyu — Civic Intelligence Platform" />
+        <meta property="og:description" content="Report civic issues, track resolution, and hold your city accountable." />
+        <meta property="og:image"       content="/favicon.svg" />
 
         <!-- Preconnect for Inter font (optional — remove if self-hosting) -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -36,9 +30,7 @@
 
         <style>
             /* Prevent flash of white before React mounts */
-            html,
-            body,
-            #root {
+            html, body, #root {
                 margin: 0;
                 padding: 0;
                 background: #09111f;

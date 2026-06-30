@@ -15,8 +15,13 @@ function clearRefreshCookie(res) {
     });
 }
 
-export const register = asyncHandler(async (req, res) => {
-    const { user, accessToken, refreshToken } = await AuthService.registerCitizen(req.body);
+export const sendOtp = asyncHandler(async (req, res) => {
+    const result = await AuthService.sendOtp(req.body);
+    res.status(200).json({ success: true, data: result });
+});
+
+export const verifyOtp = asyncHandler(async (req, res) => {
+    const { user, accessToken, refreshToken } = await AuthService.verifyOtp(req.body);
     setRefreshCookie(res, refreshToken);
     res.status(201).json({ success: true, data: { user, accessToken } });
 });
@@ -25,6 +30,14 @@ export const login = asyncHandler(async (req, res) => {
     const { user, accessToken, refreshToken } = await AuthService.loginUser(req.body);
     setRefreshCookie(res, refreshToken);
     res.status(200).json({ success: true, data: { user, accessToken } });
+});
+
+export const googleCallback = asyncHandler(async (req, res) => {
+    const { user, accessToken, refreshToken } = await AuthService.finishGoogleAuth(req.user);
+    setRefreshCookie(res, refreshToken);
+
+    const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:5173';
+    res.redirect(`${clientUrl}/auth/google/success?token=${accessToken}`);
 });
 
 export const refresh = asyncHandler(async (req, res) => {

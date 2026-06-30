@@ -24,7 +24,8 @@ const ALLOWED_ORIGINS = [
 
 export function createApp() {
     const app = express();
-
+    configurePassport();
+    app.use(passport.initialize());
     app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
     app.use(
