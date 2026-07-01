@@ -40,7 +40,7 @@ export async function logoutApi() {
 
 export async function getMeApi() {
     const { data } = await apiClient.get('/auth/me');
-    return data.data;
+    return data.data.user;
 }
 
 export async function changePasswordApi(dto) {
