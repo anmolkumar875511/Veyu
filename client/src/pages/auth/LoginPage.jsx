@@ -16,7 +16,7 @@ import {
     PasswordInput,
     PrimaryButton,
     Divider,
-} from '../../components/auth/AuthShell.jsx';
+} from '../../components/AuthShell.jsx';
 import { mk, space, font, color, radius } from '../../theme/index.js';
 
 export default function LoginPage() {

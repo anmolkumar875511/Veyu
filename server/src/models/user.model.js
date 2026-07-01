@@ -37,7 +37,6 @@ const userSchema = new Schema(
         googleId: {
             type: String,
             default: null,
-            sparse: true,
         },
 
         role: {
@@ -75,13 +74,12 @@ const userSchema = new Schema(
 
 userSchema.index({ role: 1 });
 userSchema.index({ assignedWard: 1 });
-userSchema.index({ googleId: 1 }, { sparse: true });
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password') || !this.password) return next();
+userSchema.pre('save', async function () {
+    if (!this.isModified('password') || !this.password) return ;
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
