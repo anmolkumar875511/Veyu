@@ -26,6 +26,7 @@ import {
     SectionLabel,
 } from '../../components/worker/WorkerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { RouteMap } from '../../components/shared/RouteMap.jsx';
 import { color, font, space, radius, mk } from '../../theme/index.js';
 import {
     ASSIGNMENT_STATUS_LABELS,
@@ -133,8 +134,13 @@ export default function WorkerTaskDetail() {
     const complaint = assignment.complaintId;
     const icon = CATEGORY_ICONS[complaint?.category] ?? '📋';
     const nextAction = ASSIGNMENT_NEXT_ACTION[assignment.status];
+    const isEnRoute = assignment.status === 'en_route';
     const isOnSite = assignment.status === 'on_site';
     const isCompleted = assignment.status === 'completed';
+
+    // Extract destination coords from complaint GeoJSON [lng, lat]
+    const coords = complaint?.location?.coordinates;
+    const destination = coords ? { lat: coords[1], lng: coords[0] } : null;
 
     return (
         <PageShell>
@@ -217,6 +223,18 @@ export default function WorkerTaskDetail() {
                 )}
 
                 <InstructionsBox text={assignment.instructions} />
+
+                {/* Route map — shown from en_route until task is complete */}
+                {(isEnRoute || isOnSite) && destination && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <SectionLabel>Route to location</SectionLabel>
+                        <RouteMap
+                            destination={destination}
+                            destinationLabel={complaint?.address ?? complaint?.title}
+                            height="280px"
+                        />
+                    </div>
+                )}
 
                 <ErrorBanner message={actionErr} />
 

@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { submitComplaintApi, parseComplaintError } from '../../api/complaints.api.js';
 import { COMPLAINT_CATEGORIES } from '../../constants/complaint.constants.js';
 import { PageShell, NavBar, ErrorBanner } from '../../components/citizen/CitizenShell.jsx';
+import { LocationPicker } from '../../components/shared/LocationPicker.jsx';
 import { color, font, space, radius, transition, mk } from '../../theme/index.js';
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -501,6 +502,7 @@ export default function SubmitComplaint() {
 
                         {/* Location */}
                         <Field label="Location" required error={fieldErrors.coords}>
+                            {/* GPS quick-capture button */}
                             <button
                                 type="button"
                                 onClick={captureGPS}
@@ -519,47 +521,37 @@ export default function SubmitComplaint() {
                                 {gpsStatus === 'loading' && '📡 Getting location…'}
                                 {gpsStatus === 'ok' && '📍 Location captured — tap to refresh'}
                                 {gpsStatus === 'idle' && '📍 Use my location'}
-                                {gpsStatus === 'error' && '⚠️ GPS failed — enter manually'}
+                                {gpsStatus === 'error' && '⚠️ GPS failed — use map below'}
                             </button>
 
-                            {gpsStatus === 'ok' && (
+                            {/* Map pin picker — always visible so citizen can fine-tune */}
+                            <LocationPicker
+                                lat={lat ? parseFloat(lat) : null}
+                                lng={lng ? parseFloat(lng) : null}
+                                onChange={(newLat, newLng) => {
+                                    setLat(newLat.toFixed(6));
+                                    setLng(newLng.toFixed(6));
+                                    if (fieldErrors.coords)
+                                        setFieldErrors((fe) => {
+                                            const n = { ...fe };
+                                            delete n.coords;
+                                            return n;
+                                        });
+                                }}
+                                height="240px"
+                            />
+
+                            {lat && lng && (
                                 <p
                                     style={{
                                         fontSize: font.size.xs,
                                         color: color.success,
-                                        margin: `${space[1]} 0 0`,
+                                        margin: 0,
                                     }}
                                 >
-                                    {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}°E
+                                    📍 {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}
+                                    °E
                                 </p>
-                            )}
-
-                            {(gpsStatus === 'error' || gpsStatus === 'idle') && (
-                                <div
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '1fr 1fr',
-                                        gap: space[3],
-                                        marginTop: space[2],
-                                    }}
-                                >
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        placeholder="Latitude"
-                                        value={lat}
-                                        onChange={(e) => setLat(e.target.value)}
-                                        style={inp(false)}
-                                    />
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        placeholder="Longitude"
-                                        value={lng}
-                                        onChange={(e) => setLng(e.target.value)}
-                                        style={inp(false)}
-                                    />
-                                </div>
                             )}
                         </Field>
 

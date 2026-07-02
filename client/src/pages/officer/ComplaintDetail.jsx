@@ -30,12 +30,41 @@ import {
     Card,
 } from '../../components/officer/OfficerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { MapContainer } from '../../components/shared/MapContainer.jsx';
+import { complaintMarkerIcon } from '../../config/mapMarkers.js';
 import { color, font, space, radius } from '../../theme/index.js';
 import {
     COMPLAINT_STATUS_LABELS,
     ASSIGNMENT_STATUS_LABELS,
     STATUS_META,
 } from '../../constants/complaint.constants.js';
+
+// ── Static complaint location map — read-only pin showing where issue is ──────
+function ComplaintPinLayer({ map, complaint }) {
+    useEffect(() => {
+        if (!map || !complaint?.location?.coordinates) return;
+        const [lng, lat] = complaint.location.coordinates;
+        const marker = new window.google.maps.Marker({
+            map,
+            position: { lat, lng },
+            icon: complaintMarkerIcon(complaint.severity),
+            title: complaint.title,
+        });
+        map.panTo({ lat, lng });
+        return () => marker.setMap(null);
+    }, [map, complaint]);
+    return null;
+}
+
+function ComplaintPinMap({ complaint }) {
+    if (!complaint?.location?.coordinates) return null;
+    const [lng, lat] = complaint.location.coordinates;
+    return (
+        <MapContainer center={{ lat, lng }} zoom={15} height="220px">
+            {(map) => <ComplaintPinLayer map={map} complaint={complaint} />}
+        </MapContainer>
+    );
+}
 
 function StatusHistory({ history }) {
     if (!history?.length) return null;
@@ -386,6 +415,8 @@ export default function OfficerComplaintDetail() {
                                 📍 {complaint.address}
                             </p>
                         )}
+
+                        <ComplaintPinMap complaint={complaint} />
                         <StatusHistory history={complaint.statusHistory} />
                     </div>
 

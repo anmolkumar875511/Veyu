@@ -23,6 +23,8 @@ import {
     Card,
 } from '../../components/citizen/CitizenShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { MapContainer } from '../../components/shared/MapContainer.jsx';
+import { complaintMarkerIcon } from '../../config/mapMarkers.js';
 import { color, font, space, radius, shadow, transition } from '../../theme/index.js';
 import {
     CATEGORY_ICONS,
@@ -173,6 +175,33 @@ function ComplaintRow({ complaint, isSelected, onClick }) {
                 <SeverityPip severity={complaint.severity} />
             </div>
         </div>
+    );
+}
+
+// ── Tiny location map shown in the complaint detail drawer ────────────────────
+function CitizenPinLayer({ map, complaint }) {
+    useEffect(() => {
+        if (!map || !complaint?.location?.coordinates) return;
+        const [lng, lat] = complaint.location.coordinates;
+        const marker = new window.google.maps.Marker({
+            map,
+            position: { lat, lng },
+            icon: complaintMarkerIcon(complaint.severity),
+            title: complaint.title,
+        });
+        map.panTo({ lat, lng });
+        return () => marker.setMap(null);
+    }, [map, complaint]);
+    return null;
+}
+
+function CitizenPinMap({ complaint }) {
+    if (!complaint?.location?.coordinates) return null;
+    const [lng, lat] = complaint.location.coordinates;
+    return (
+        <MapContainer center={{ lat, lng }} zoom={16} height="180px">
+            {(map) => <CitizenPinLayer map={map} complaint={complaint} />}
+        </MapContainer>
     );
 }
 
@@ -365,6 +394,8 @@ function DetailDrawer({ complaintId, onClose }) {
                             📍 {detail.address}
                         </p>
                     )}
+
+                    <CitizenPinMap complaint={detail} />
 
                     {/* AI box */}
                     <div

@@ -24,6 +24,7 @@ import {
     PointsBadge,
 } from '../../components/worker/WorkerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { LocationPicker } from '../../components/shared/LocationPicker.jsx';
 import { color, font, space, radius } from '../../theme/index.js';
 
 // ── Observation history row ───────────────────────────────────────────────────
@@ -373,7 +374,20 @@ export default function WorkerObservations() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
                             <FieldLabel required>Location</FieldLabel>
                             <GpsButton status={gpsStatus} onClick={captureGPS} />
-                            {gpsStatus === 'ok' && (
+
+                            {/* Map pin — lets worker fine-tune after GPS fix or use instead of GPS */}
+                            <LocationPicker
+                                lat={lat ? parseFloat(lat) : null}
+                                lng={lng ? parseFloat(lng) : null}
+                                onChange={(newLat, newLng) => {
+                                    setLat(newLat.toFixed(6));
+                                    setLng(newLng.toFixed(6));
+                                    setGpsStatus('ok');
+                                }}
+                                height="220px"
+                            />
+
+                            {lat && lng && (
                                 <p
                                     style={{
                                         fontSize: font.size.xs,
@@ -381,7 +395,8 @@ export default function WorkerObservations() {
                                         margin: 0,
                                     }}
                                 >
-                                    {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}°E
+                                    📍 {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}
+                                    °E
                                 </p>
                             )}
                         </div>

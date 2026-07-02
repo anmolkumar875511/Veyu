@@ -10,6 +10,7 @@ import {
     ErrorBanner, SkeletonGrid, SkeletonRows,
     StressBand, StressBandLegend, VelocityBar,
 } from '../../components/admin/AdminShell.jsx';
+import { NerveMapView } from '../../components/shared/NerveMapView.jsx';
 import { color, font, space, radius, transition } from '../../theme/index.js';
 import { STRESS_BAND_META } from '../../constants/complaint.constants.js';
 
@@ -193,7 +194,7 @@ export default function PublicNerveMap() {
                     </div>
                 )}
 
-                {/* PulseGrid */}
+                {/* PulseGrid — Live Map */}
                 <section style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
                     <div>
                         <h2 style={{ fontSize: '1.15rem', fontWeight: font.weight.bold, color: color.textPrimary, margin: `0 0 ${space[1]} 0` }}>
@@ -205,16 +206,28 @@ export default function PublicNerveMap() {
                     </div>
 
                     {loading
-                        ? <SkeletonGrid count={6} height="150px" minCol="220px" />
+                        ? <SkeletonGrid count={1} height="480px" minCol="100%" />
                         : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: space[4] }}>
-                                {pulseWards.map((w) => <StressTile key={w._id ?? w.wardNumber} ward={w} />)}
-                            </div>
+                            <NerveMapView
+                                wards={pulseWards}
+                                height="480px"
+                            />
                         )
                     }
-
-                    <StressBandLegend />
                 </section>
+
+                {/* PulseGrid tile cards — quick scan below the map */}
+                {!loading && pulseWards.length > 0 && (
+                    <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
+                        <h2 style={{ fontSize: '1rem', fontWeight: font.weight.bold, color: color.textPrimary, margin: 0 }}>
+                            Ward Breakdown
+                        </h2>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: space[3] }}>
+                            {pulseWards.map((w) => <StressTile key={w._id ?? w.wardNumber} ward={w} />)}
+                        </div>
+                        <StressBandLegend />
+                    </section>
+                )}
 
                 {/* Leaderboard */}
                 <section style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>

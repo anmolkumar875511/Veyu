@@ -31,6 +31,7 @@ import {
     Modal,
 } from '../../components/admin/AdminShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
+import { NerveMapView } from '../../components/shared/NerveMapView.jsx';
 import { color, font, space, radius } from '../../theme/index.js';
 
 const EMPTY_FORM = { name: '', wardNumber: '', city: '' };
@@ -345,6 +346,23 @@ export default function WardManagement() {
                         }}
                     />
                 )}
+
+                {/* Ward overview map — shows all wards plotted by stress band */}
+                {!loading && wards.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <span
+                            style={{
+                                fontSize: font.size.sm,
+                                fontWeight: font.weight.semibold,
+                                color: color.textSecondary,
+                            }}
+                        >
+                            Ward coverage map
+                        </span>
+                        <NerveMapView wards={wards} height="320px" />
+                    </div>
+                )}
+
                 <ErrorBanner message={error} />
 
                 {loading && <SkeletonRows count={3} height="76px" />}
