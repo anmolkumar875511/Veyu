@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 56">
+    <!-- Icon: same converging-signal V mark as veyu-mark.svg -->
+    <circle cx="28" cy="28" r="28" fill="#09111f"/>
+    <line x1="15" y1="15" x2="28" y2="40" stroke="#22d3ee" stroke-width="3.6" stroke-linecap="round"/>
+    <line x1="41" y1="15" x2="28" y2="40" stroke="#22d3ee" stroke-width="3.6" stroke-linecap="round"/>
+    <circle cx="15" cy="15" r="3.8" fill="#22d3ee" opacity="0.55"/>
+    <circle cx="41" cy="15" r="3.8" fill="#22d3ee" opacity="0.55"/>
+    <circle cx="28" cy="40" r="9.5" fill="none" stroke="#22d3ee" stroke-width="1.4" opacity="0.3"/>
+    <circle cx="28" cy="40" r="6.2" fill="#22d3ee"/>
+
+    <!-- Wordmark — set in the app's existing extrabold/uppercase/tracked-out
+         style (see Logo.jsx). Fill is dark navy for use on light surfaces;
+         swap to #ffffff for dark surfaces. -->
+    <text
+        x="70"
+        y="37"
+        font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+        font-size="28"
+        font-weight="800"
+        letter-spacing="2.5"
+        fill="#0f172a"
+    >VEYU</text>
+</svg>
