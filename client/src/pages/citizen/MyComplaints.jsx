@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, ChevronUp, MapPin, Plus, Repeat2, Trash2, X } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling.js';
 import {
     getMyComplaintsApi,
@@ -20,14 +22,13 @@ import {
     ErrorBanner,
     Skeleton,
     Pagination,
-    Card,
 } from '../../components/citizen/CitizenShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { MapContainer } from '../../components/shared/MapContainer.jsx';
 import { complaintMarkerIcon } from '../../config/mapMarkers.js';
-import { color, font, space, radius, shadow, transition } from '../../theme/index.js';
+import { cn } from '../../lib/utils';
+import { getCategoryIcon } from '../../constants/categoryIcons.js';
 import {
-    CATEGORY_ICONS,
     STATUS_META,
     STATUS_TABS,
     TIMELINE_STEPS,
@@ -49,64 +50,35 @@ function StatusTimeline({ status }) {
     const isTerminal = status === 'rejected' || status === 'duplicate';
 
     if (isTerminal) {
-        return (
-            <div style={{ display: 'flex' }}>
-                <StatusBadge status={status} />
-            </div>
-        );
+        return <StatusBadge status={status} />;
     }
 
     return (
-        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        <div className="flex items-start">
             {TIMELINE_STEPS.map((st, i) => {
                 const m = STATUS_META[st];
                 const done = (STATUS_META[status]?.step ?? 0) > i;
                 const active = status === st;
+                const isReached = done || active;
                 return (
-                    <div
-                        key={st}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '0.3rem',
-                            flex: 1,
-                            position: 'relative',
-                        }}
-                    >
+                    <div key={st} className="relative flex flex-1 flex-col items-center gap-1">
                         <div
-                            style={{
-                                width: '0.6rem',
-                                height: '0.6rem',
-                                borderRadius: radius.full,
-                                background: done || active ? m.color : color.borderDefault,
-                                boxShadow: active ? `0 0 8px ${m.color}88` : 'none',
-                                transition: 'background 0.3s',
-                                flexShrink: 0,
-                            }}
+                            className={cn(
+                                'size-2.5 shrink-0 rounded-full transition-colors',
+                                isReached ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-700'
+                            )}
+                            style={active ? { boxShadow: '0 0 0 4px rgb(79 70 229 / 0.15)' } : undefined}
                         />
                         <span
-                            style={{
-                                fontSize: '0.58rem',
-                                fontWeight: font.weight.medium,
-                                textAlign: 'center',
-                                lineHeight: 1.2,
-                                color: done || active ? m.color : color.textMuted,
-                            }}
+                            className={cn(
+                                'text-center text-[0.58rem] font-medium leading-tight',
+                                isReached ? 'text-primary-600' : 'text-slate-400 dark:text-slate-500'
+                            )}
                         >
                             {m.label}
                         </span>
                         {i < TIMELINE_STEPS.length - 1 && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    top: '0.28rem',
-                                    left: '50%',
-                                    right: '-50%',
-                                    height: '1px',
-                                    background: done ? color.borderDefault : color.bgPage,
-                                }}
-                            />
+                            <div className={cn('absolute left-1/2 right-[-50%] top-[5px] h-px', done ? 'bg-slate-300' : 'bg-slate-100 dark:bg-slate-800')} />
                         )}
                     </div>
                 );
@@ -117,60 +89,28 @@ function StatusTimeline({ status }) {
 
 // ── ComplaintRow ──────────────────────────────────────────────────────────────
 function ComplaintRow({ complaint, isSelected, onClick }) {
-    const icon = CATEGORY_ICONS[complaint.category] ?? '📋';
+    const Icon = getCategoryIcon(complaint.category);
     return (
         <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: space[3],
-                border: `1px solid ${isSelected ? color.accent + '44' : color.borderDefault}`,
-                background: isSelected ? color.bgElevated : color.bgSurface,
-                borderRadius: radius.lg,
-                padding: `0.875rem ${space[4]}`,
-                cursor: 'pointer',
-                transition: transition.fast,
-            }}
             onClick={onClick}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && onClick()}
+            className={cn(
+                'flex cursor-pointer items-center gap-3 rounded-lg border p-3.5 transition-colors duration-150',
+                isSelected ? 'border-primary-300 bg-primary-50/50' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-surface-50 dark:hover:bg-slate-800'
+            )}
         >
-            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{icon}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <span
-                    style={{
-                        display: 'block',
-                        fontSize: font.size.base,
-                        fontWeight: font.weight.semibold,
-                        color: color.textPrimary,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                    }}
-                >
-                    {complaint.title}
-                </span>
-                <span
-                    style={{
-                        display: 'block',
-                        fontSize: font.size.xs,
-                        color: color.textMuted,
-                        marginTop: '0.2rem',
-                    }}
-                >
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                <Icon className="size-4.5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{complaint.title}</span>
+                <span className="mt-0.5 block text-xs text-slate-400 dark:text-slate-500">
                     {complaint.category} · {formatDate(complaint.createdAt)}
                 </span>
             </div>
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: '0.3rem',
-                    flexShrink: 0,
-                }}
-            >
+            <div className="flex shrink-0 flex-col items-end gap-1">
                 <StatusBadge status={complaint.status} />
                 <SeverityPip severity={complaint.severity} />
             </div>
@@ -252,241 +192,96 @@ function DetailDrawer({ complaintId, onClose }) {
     const canDelete = detail && DELETABLE_STATUSES.includes(detail.status);
 
     return (
-        <div
-            style={{
-                width: '360px',
-                flexShrink: 0,
-                borderLeft: `1px solid ${color.borderFaint}`,
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                overflowY: 'auto',
-                background: color.bgSurface,
-            }}
+        <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-40 flex w-full flex-col overflow-y-auto border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sm:static sm:z-auto sm:h-full sm:w-[380px] sm:shrink-0"
         >
             {/* Header */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: `${space[4]} ${space[5]}`,
-                    borderBottom: `1px solid ${color.borderDefault}`,
-                    position: 'sticky',
-                    top: 0,
-                    background: color.bgSurface,
-                    zIndex: 1,
-                }}
-            >
-                <span
-                    style={{
-                        fontSize: font.size.base,
-                        fontWeight: font.weight.bold,
-                        color: color.textPrimary,
-                    }}
-                >
-                    Complaint Detail
-                </span>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4">
+                <span className="text-base font-bold text-slate-900 dark:text-white">Complaint Detail</span>
                 <button
                     onClick={() => onClose()}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: color.textMuted,
-                        fontSize: '1.25rem',
-                        cursor: 'pointer',
-                        lineHeight: 1,
-                    }}
                     aria-label="Close"
+                    className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:text-slate-300"
                 >
-                    ×
+                    <X className="size-5" />
                 </button>
             </div>
 
-            {loading && (
-                <div
-                    style={{
-                        padding: space[8],
-                        color: color.textMuted,
-                        fontSize: font.size.sm,
-                        textAlign: 'center',
-                    }}
-                >
-                    Loading…
-                </div>
-            )}
-            {err && (
-                <div
-                    style={{
-                        padding: `${space[4]} ${space[5]}`,
-                        color: '#fca5a5',
-                        fontSize: font.size.sm,
-                    }}
-                >
-                    {err}
-                </div>
-            )}
+            {loading && <div className="p-8 text-center text-sm text-slate-400 dark:text-slate-500">Loading…</div>}
+            {err && <div className="px-5 py-4 text-sm text-rose-600">{err}</div>}
 
             {detail && !loading && (
-                <div
-                    style={{
-                        padding: space[5],
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: space[4],
-                    }}
-                >
-                    <img
-                        src={detail.imageUrl}
-                        alt="Complaint"
-                        style={{
-                            width: '100%',
-                            height: '180px',
-                            objectFit: 'cover',
-                            borderRadius: radius.md,
-                        }}
-                    />
+                <div className="flex flex-col gap-4 p-5">
+                    <img src={detail.imageUrl} alt="Complaint" className="h-44 w-full rounded-lg object-cover" />
 
-                    <h2
-                        style={{
-                            fontSize: font.size.md,
-                            fontWeight: font.weight.bold,
-                            color: color.textPrimary,
-                            margin: 0,
-                            lineHeight: 1.4,
-                        }}
-                    >
-                        {detail.title}
-                    </h2>
+                    <h2 className="text-base font-bold leading-snug text-slate-900 dark:text-white">{detail.title}</h2>
 
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: space[2],
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                        }}
-                    >
+                    <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge status={detail.status} />
-                        <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                            {detail.category}
-                        </span>
-                        {detail.wardId && (
-                            <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                                Ward {detail.wardId.wardNumber}
-                            </span>
-                        )}
+                        <span className="text-xs text-slate-400 dark:text-slate-500">{detail.category}</span>
+                        {detail.wardId && <span className="text-xs text-slate-400 dark:text-slate-500">Ward {detail.wardId.wardNumber}</span>}
                     </div>
 
-                    <p
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textSecondary,
-                            lineHeight: 1.6,
-                            margin: 0,
-                        }}
-                    >
-                        {detail.description}
-                    </p>
+                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{detail.description}</p>
 
                     {detail.address && (
-                        <p style={{ fontSize: font.size.xs, color: color.textMuted, margin: 0 }}>
-                            📍 {detail.address}
+                        <p className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                            <MapPin className="size-3.5 shrink-0" /> {detail.address}
                         </p>
                     )}
 
                     <CitizenPinMap complaint={detail} />
 
                     {/* AI box */}
-                    <div
-                        style={{
-                            background: color.bgPage,
-                            borderRadius: radius.md,
-                            padding: space[3],
-                            border: `1px solid ${color.borderDefault}`,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.4rem',
-                        }}
-                    >
+                    <div className="flex flex-col gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 p-3">
                         <SectionLabel>AI Assessment</SectionLabel>
                         {[
                             ['Category', detail.category],
                             ['Severity', `${detail.severity ?? '—'}/10`],
-                            [
-                                'Confidence',
-                                detail.aiConfidence
-                                    ? `${Math.round(detail.aiConfidence * 100)}%`
-                                    : '—',
-                            ],
+                            ['Confidence', detail.aiConfidence ? `${Math.round(detail.aiConfidence * 100)}%` : '—'],
                         ].map(([k, v]) => (
-                            <div
-                                key={k}
-                                style={{ display: 'flex', justifyContent: 'space-between' }}
-                            >
-                                <span
-                                    style={{ fontSize: font.size.xs, color: color.textSecondary }}
-                                >
-                                    {k}
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: font.size.xs,
-                                        color: color.textPrimary,
-                                        fontWeight: font.weight.medium,
-                                    }}
-                                >
-                                    {v}
-                                </span>
+                            <div key={k} className="flex justify-between">
+                                <span className="text-xs text-slate-500 dark:text-slate-400">{k}</span>
+                                <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{v}</span>
                             </div>
                         ))}
                         {detail.categorySource === 'manual' && (
-                            <span style={{ fontSize: '0.68rem', color: '#a78bfa' }}>
-                                Category was set manually
-                            </span>
+                            <span className="text-[0.68rem] text-violet-500">Category was set manually</span>
                         )}
                     </div>
 
                     {/* Duplicate notice */}
                     {detail.duplicateOf && (
-                        <div
-                            style={{
-                                background: '#451a0311',
-                                border: '1px solid #92400e44',
-                                borderRadius: radius.md,
-                                padding: space[3],
-                                fontSize: font.size.sm,
-                                color: '#fbbf24',
-                            }}
-                        >
-                            🔁 Linked to an existing report. Consider upvoting the original.
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                            <Repeat2 className="mt-0.5 size-4 shrink-0" />
+                            Linked to an existing report. Consider upvoting the original.
                         </div>
                     )}
 
                     {/* Progress */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                    <div className="flex flex-col gap-2">
                         <SectionLabel>Progress</SectionLabel>
                         <StatusTimeline status={detail.status} />
                     </div>
 
                     {/* Upvote */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                    <div className="flex flex-col gap-2">
                         <SectionLabel>Community support</SectionLabel>
                         <button
                             onClick={handleVote}
-                            style={{
-                                border: `1px solid ${hasVoted ? color.accent : color.borderDefault}`,
-                                borderRadius: radius.md,
-                                fontSize: font.size.sm,
-                                padding: `0.5rem ${space[4]}`,
-                                cursor: 'pointer',
-                                fontWeight: font.weight.medium,
-                                background: hasVoted ? color.accentMuted : color.bgPage,
-                                color: hasVoted ? color.accent : color.textSecondary,
-                                transition: transition.fast,
-                            }}
+                            className={cn(
+                                'flex items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                                hasVoted
+                                    ? 'border-primary-200 bg-primary-50 text-primary-700'
+                                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-surface-50 dark:hover:bg-slate-800'
+                            )}
                         >
-                            {hasVoted ? '▲ Upvoted' : '▲ Upvote'} · {upvotes}
+                            <ChevronUp className="size-4" />
+                            {hasVoted ? 'Upvoted' : 'Upvote'} · {upvotes}
                         </button>
                     </div>
 
@@ -495,28 +290,17 @@ function DetailDrawer({ complaintId, onClose }) {
                         <button
                             onClick={handleDelete}
                             disabled={deleting}
-                            style={{
-                                background: 'none',
-                                border: `1px solid ${color.dangerBorder}`,
-                                borderRadius: radius.md,
-                                color: color.danger,
-                                fontSize: font.size.xs,
-                                padding: space[3],
-                                cursor: 'pointer',
-                            }}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 p-3 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-60"
                         >
+                            <Trash2 className="size-3.5" />
                             {deleting ? 'Deleting…' : 'Delete this complaint'}
                         </button>
                     )}
 
-                    <span
-                        style={{ fontSize: '0.68rem', color: color.textMuted, textAlign: 'right' }}
-                    >
-                        Submitted {formatDate(detail.createdAt)}
-                    </span>
+                    <span className="text-right text-[0.68rem] text-slate-400 dark:text-slate-500">Submitted {formatDate(detail.createdAt)}</span>
                 </div>
             )}
-        </div>
+        </motion.div>
     );
 }
 
@@ -552,6 +336,7 @@ export default function MyComplaints() {
 
     useEffect(() => {
         fetchComplaints(page, statusFilter);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, statusFilter]);
     usePolling(() => fetchComplaints(page, statusFilter), 30_000, complaints.length > 0);
 
@@ -570,75 +355,38 @@ export default function MyComplaints() {
         <PageShell>
             <NavBar
                 left={
-                    <Link
-                        to="/dashboard"
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textSecondary,
-                            textDecoration: 'none',
-                        }}
-                    >
-                        ← Dashboard
+                    <Link to="/dashboard" className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700">
+                        <ArrowLeft className="size-4" /> Dashboard
                     </Link>
                 }
-                center={
-                    <span
-                        style={{
-                            fontSize: font.size.base,
-                            fontWeight: font.weight.semibold,
-                            color: color.textPrimary,
-                        }}
-                    >
-                        My Reports
-                    </span>
-                }
+                center={<span className="text-sm font-semibold text-slate-900 dark:text-white">My Reports</span>}
                 right={
                     <>
                         <NotificationBell />
-                        <NavLinkAccent to="/report">+ New</NavLinkAccent>
+                        <NavLinkAccent to="/report">
+                            <span className="flex items-center gap-1">
+                                <Plus className="size-3.5" /> New
+                            </span>
+                        </NavLinkAccent>
                     </>
                 }
             />
 
-            <div style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
+            <div className="flex h-[calc(100vh-56px)]">
                 {/* List panel */}
-                <div
-                    style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                    }}
-                >
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {/* Status tabs */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            borderBottom: `1px solid ${color.borderFaint}`,
-                            padding: `0 ${space[5]}`,
-                            overflowX: 'auto',
-                        }}
-                    >
+                    <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-800 px-5">
                         {STATUS_TABS.map((t) => (
                             <button
                                 key={t.value}
                                 onClick={() => handleTabChange(t.value)}
-                                style={{
-                                    padding: `${space[3]} ${space[3]}`,
-                                    fontSize: font.size.xs,
-                                    fontWeight: font.weight.medium,
-                                    cursor: 'pointer',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    color:
-                                        statusFilter === t.value
-                                            ? color.textPrimary
-                                            : color.textMuted,
-                                    borderBottom: `2px solid ${statusFilter === t.value ? color.accent : 'transparent'}`,
-                                    whiteSpace: 'nowrap',
-                                    transition: transition.fast,
-                                }}
+                                className={cn(
+                                    'whitespace-nowrap border-b-2 px-3 py-3 text-xs font-medium transition-colors',
+                                    statusFilter === t.value
+                                        ? 'border-primary-600 text-slate-900 dark:text-white'
+                                        : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                                )}
                             >
                                 {t.label}
                             </button>
@@ -646,66 +394,25 @@ export default function MyComplaints() {
                     </div>
 
                     {!loading && (
-                        <p
-                            style={{
-                                fontSize: font.size.xs,
-                                color: color.textMuted,
-                                padding: `${space[2]} ${space[5]} 0`,
-                                margin: 0,
-                            }}
-                        >
+                        <p className="px-5 pt-2 text-xs text-slate-400 dark:text-slate-500">
                             {total} report{total !== 1 ? 's' : ''}
                         </p>
                     )}
 
                     {error && (
-                        <div style={{ margin: `${space[3]} ${space[5]}` }}>
+                        <div className="mx-5 my-3">
                             <ErrorBanner message={error} />
                         </div>
                     )}
 
-                    <div
-                        style={{
-                            flex: 1,
-                            overflowY: 'auto',
-                            padding: `${space[3]} ${space[5]}`,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: space[2],
-                        }}
-                    >
+                    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-3">
                         {loading && <Skeleton height="68px" count={4} />}
 
                         {!loading && complaints.length === 0 && (
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: space[3],
-                                    padding: space[12],
-                                }}
-                            >
-                                <p
-                                    style={{
-                                        color: color.textMuted,
-                                        fontSize: font.size.base,
-                                        margin: 0,
-                                    }}
-                                >
-                                    No complaints found.
-                                </p>
-                                <Link
-                                    to="/report"
-                                    style={{
-                                        color: color.accent,
-                                        textDecoration: 'none',
-                                        fontSize: font.size.sm,
-                                    }}
-                                >
-                                    Submit your first report →
+                            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-12">
+                                <p className="text-sm text-slate-400 dark:text-slate-500">No complaints found.</p>
+                                <Link to="/report" className="text-sm text-primary-600 hover:text-primary-700">
+                                    Submit your first report
                                 </Link>
                             </div>
                         )}
@@ -716,9 +423,7 @@ export default function MyComplaints() {
                                     key={c._id}
                                     complaint={c}
                                     isSelected={selectedId === c._id}
-                                    onClick={() =>
-                                        setSelectedId(selectedId === c._id ? null : c._id)
-                                    }
+                                    onClick={() => setSelectedId(selectedId === c._id ? null : c._id)}
                                 />
                             ))}
                     </div>
@@ -728,18 +433,14 @@ export default function MyComplaints() {
                         totalPages={totalPages}
                         onPrev={() => setPage((p) => p - 1)}
                         onNext={() => setPage((p) => p + 1)}
-                        style={{ padding: space[4], borderTop: `1px solid ${color.borderFaint}` }}
+                        className="border-t border-slate-200 dark:border-slate-800 p-4"
                     />
                 </div>
 
                 {/* Detail drawer */}
-                {selectedId && (
-                    <DetailDrawer
-                        key={selectedId}
-                        complaintId={selectedId}
-                        onClose={handleDrawerClose}
-                    />
-                )}
+                <AnimatePresence>
+                    {selectedId && <DetailDrawer key={selectedId} complaintId={selectedId} onClose={handleDrawerClose} />}
+                </AnimatePresence>
             </div>
         </PageShell>
     );

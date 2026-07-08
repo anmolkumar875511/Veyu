@@ -7,13 +7,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useGoogleMaps } from '../../hooks/useGoogleMaps.js';
 import {
     VEYU_MAP_DEFAULTS,
     VEYU_DEFAULT_CENTER,
     VEYU_DEFAULT_ZOOM,
 } from '../../config/mapStyle.js';
-import { color, font, radius } from '../../theme/index.js';
 
 export function MapContainer({
     center = VEYU_DEFAULT_CENTER,
@@ -28,35 +28,37 @@ export function MapContainer({
     const [mapInstance, setMapInstance] = useState(null);
 
     useEffect(() => {
-        if (!isLoaded || !containerRef.current || mapRef.current) return;
+            if (!isLoaded || !containerRef.current || mapRef.current) return;
 
-        const map = new window.google.maps.Map(containerRef.current, {
-            center,
-            zoom,
-            ...VEYU_MAP_DEFAULTS,
-        });
+            const initializeMap = () => {
+                try {
+                    // Use the classic global namespace (same pattern LocationPicker.jsx
+                    // already relies on) — importLibrary() only exists when Maps is
+                    // loaded via Google's special inline bootstrap-loader snippet, not
+                    // via a plain <script src="...maps/api/js?..."> tag like the one
+                    // useGoogleMaps.js injects. Calling it here always throws.
+                    const map = new window.google.maps.Map(containerRef.current, {
+                        center,
+                        zoom,
+                        ...VEYU_MAP_DEFAULTS,
+                    });
 
-        mapRef.current = map;
-        setMapInstance(map);
-        onMapReady?.(map);
-    }, [isLoaded]);
+                    mapRef.current = map;
+                    setMapInstance(map);
+                    onMapReady?.(map);
+                } catch (error) {
+                    console.error('Failed to initialize the map:', error);
+                }
+            };
+
+            initializeMap();
+        }, [isLoaded]); // Keep your dependencies as they were
 
     if (loadError) {
         return (
             <div
-                style={{
-                    height,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: color.bgSurface,
-                    border: `1px solid ${color.dangerBorder}`,
-                    borderRadius: radius.xl,
-                    color: color.danger,
-                    fontSize: font.size.sm,
-                    textAlign: 'center',
-                    padding: '1rem',
-                }}
+                style={{ height }}
+                className="flex items-center justify-center rounded-xl border border-rose-200 bg-white dark:bg-slate-900 p-4 text-center text-sm text-rose-600"
             >
                 Could not load map. Check your connection or API key configuration.
             </div>
@@ -64,36 +66,16 @@ export function MapContainer({
     }
 
     return (
-        <div style={{ position: 'relative', height, width: '100%' }}>
+        <div style={{ height }} className="relative w-full">
             {!isLoaded && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: color.bgSurface,
-                        borderRadius: radius.xl,
-                        border: `1px solid ${color.borderDefault}`,
-                        color: color.textMuted,
-                        fontSize: font.size.sm,
-                    }}
-                >
-                    Loading map…
+                <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-400 dark:text-slate-500">
+                    <Loader2 className="size-4 animate-spin" /> Loading map…
                 </div>
             )}
             <div
                 ref={containerRef}
-                style={{
-                    height: '100%',
-                    width: '100%',
-                    borderRadius: radius.xl,
-                    overflow: 'hidden',
-                    border: `1px solid ${color.borderDefault}`,
-                    opacity: isLoaded ? 1 : 0,
-                    transition: 'opacity 0.3s',
-                }}
+                className="h-full w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 transition-opacity duration-300"
+                style={{ opacity: isLoaded ? 1 : 0 }}
             />
             {mapInstance && children?.(mapInstance)}
         </div>

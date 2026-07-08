@@ -1,48 +1,30 @@
 // src/pages/officer/Reports.jsx
 
 import { useState, useEffect } from 'react';
+import { ArrowLeft, Star } from 'lucide-react';
 import { useCurrentUser } from '../../hooks/useAuthGuards.js';
 import { getWardReportApi } from '../../api/officer.api.js';
-import {
-    PageShell,
-    NavBar,
-    BackLink,
-    NavTitle,
-    ErrorBanner,
-    SectionLabel,
-} from '../../components/officer/OfficerShell.jsx';
+import { PageShell, NavBar, BackLink, NavTitle, ErrorBanner } from '../../components/officer/OfficerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
-import { color, font, space, radius } from '../../theme/index.js';
 import { COMPLAINT_STATUS_LABELS, STATUS_META } from '../../constants/complaint.constants.js';
+import { getStatusTheme } from '../../lib/roleTheme';
+import { cn } from '../../lib/utils';
 
 // ── Stat block ────────────────────────────────────────────────────────────────
-function StatBlock({ label, value, sub, accent }) {
+const ACCENT_TONE = {
+    primary: { border: 'border-t-primary-500', text: 'text-primary-600' },
+    violet: { border: 'border-t-violet-500', text: 'text-violet-600' },
+    emerald: { border: 'border-t-emerald-500', text: 'text-emerald-600' },
+    amber: { border: 'border-t-amber-500', text: 'text-amber-600' },
+};
+
+function StatBlock({ label, value, sub, accent = 'primary' }) {
+    const tone = ACCENT_TONE[accent] ?? ACCENT_TONE.primary;
     return (
-        <div
-            style={{
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderTop: `3px solid ${accent}`,
-                borderRadius: radius.xl,
-                padding: `${space[5]} ${space[4]}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.25rem',
-            }}
-        >
-            <span
-                style={{
-                    fontSize: '1.4rem',
-                    fontWeight: font.weight.extrabold,
-                    color: accent,
-                    textTransform: 'capitalize',
-                    lineHeight: 1,
-                }}
-            >
-                {value ?? '—'}
-            </span>
-            <span style={{ fontSize: font.size.xs, color: color.textSecondary }}>{label}</span>
-            {sub && <span style={{ fontSize: '0.68rem', color: color.textMuted }}>{sub}</span>}
+        <div className={cn('flex flex-col gap-1 rounded-xl border border-t-[3px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4', tone.border)}>
+            <span className={cn('text-2xl font-extrabold capitalize leading-none', tone.text)}>{value ?? '—'}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
+            {sub && <span className="text-[0.68rem] text-slate-400 dark:text-slate-500">{sub}</span>}
         </div>
     );
 }
@@ -51,56 +33,33 @@ function StatBlock({ label, value, sub, accent }) {
 function StatusBar({ breakdown }) {
     const total = Object.values(breakdown).reduce((a, b) => a + b, 0) || 1;
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
-            <div
-                style={{
-                    display: 'flex',
-                    height: '10px',
-                    borderRadius: radius.full,
-                    overflow: 'hidden',
-                    background: color.bgSurface,
-                }}
-            >
-                {Object.entries(breakdown).map(([status, count]) =>
-                    count > 0 ? (
+        <div className="flex flex-col gap-3">
+            <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                {Object.entries(breakdown).map(([status, count]) => {
+                    if (count <= 0) return null;
+                    const theme = getStatusTheme(status);
+                    return (
                         <div
                             key={status}
-                            style={{
-                                width: `${(count / total) * 100}%`,
-                                background: STATUS_META[status]?.color ?? color.borderDefault,
-                                height: '100%',
-                            }}
+                            style={{ width: `${(count / total) * 100}%` }}
+                            className={cn('h-full', theme.dot)}
                             title={`${COMPLAINT_STATUS_LABELS[status]}: ${count}`}
                         />
-                    ) : null
-                )}
+                    );
+                })}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: space[4] }}>
+            <div className="flex flex-wrap gap-4">
                 {Object.entries(breakdown)
                     .filter(([, c]) => c > 0)
-                    .map(([status, count]) => (
-                        <span
-                            key={status}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                fontSize: font.size.xs,
-                                color: color.textSecondary,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    width: '0.5rem',
-                                    height: '0.5rem',
-                                    borderRadius: radius.full,
-                                    background: STATUS_META[status]?.color ?? color.borderDefault,
-                                    display: 'inline-block',
-                                }}
-                            />
-                            {COMPLAINT_STATUS_LABELS[status]} ({count})
-                        </span>
-                    ))}
+                    .map(([status, count]) => {
+                        const theme = getStatusTheme(status);
+                        return (
+                            <span key={status} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <span className={cn('inline-block size-2 rounded-full', theme.dot)} />
+                                {COMPLAINT_STATUS_LABELS[status]} ({count})
+                            </span>
+                        );
+                    })}
             </div>
         </div>
     );
@@ -109,55 +68,18 @@ function StatusBar({ breakdown }) {
 // ── Category bar chart ────────────────────────────────────────────────────────
 function CategoryBreakdown({ breakdown }) {
     if (!breakdown?.length) {
-        return (
-            <p style={{ fontSize: font.size.sm, color: color.textMuted }}>
-                No complaints in the last 30 days.
-            </p>
-        );
+        return <p className="text-sm text-slate-400 dark:text-slate-500">No complaints in the last 30 days.</p>;
     }
     const max = breakdown[0].count;
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+        <div className="flex flex-col gap-2">
             {breakdown.map((c) => (
-                <div key={c._id} style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
-                    <span
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textSecondary,
-                            width: '120px',
-                            flexShrink: 0,
-                        }}
-                    >
-                        {c._id}
-                    </span>
-                    <div
-                        style={{
-                            flex: 1,
-                            height: '8px',
-                            background: color.bgSurface,
-                            borderRadius: radius.full,
-                            overflow: 'hidden',
-                        }}
-                    >
-                        <div
-                            style={{
-                                width: `${(c.count / max) * 100}%`,
-                                height: '100%',
-                                background: color.accent,
-                                borderRadius: radius.full,
-                            }}
-                        />
+                <div key={c._id} className="flex items-center gap-3">
+                    <span className="w-28 shrink-0 text-sm text-slate-600 dark:text-slate-300">{c._id}</span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className="h-full rounded-full bg-primary-500" style={{ width: `${(c.count / max) * 100}%` }} />
                     </div>
-                    <span
-                        style={{
-                            fontSize: font.size.xs,
-                            color: color.textMuted,
-                            width: '24px',
-                            textAlign: 'right',
-                        }}
-                    >
-                        {c.count}
-                    </span>
+                    <span className="w-6 text-right text-xs text-slate-400 dark:text-slate-500">{c.count}</span>
                 </div>
             ))}
         </div>
@@ -167,58 +89,17 @@ function CategoryBreakdown({ breakdown }) {
 // ── Worker leaderboard ────────────────────────────────────────────────────────
 function Leaderboard({ workers }) {
     if (!workers?.length) {
-        return (
-            <p style={{ fontSize: font.size.sm, color: color.textMuted }}>
-                No completed tasks yet.
-            </p>
-        );
+        return <p className="text-sm text-slate-400 dark:text-slate-500">No completed tasks yet.</p>;
     }
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+        <div className="flex flex-col gap-2">
             {workers.map((w, i) => (
-                <div
-                    key={i}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: space[3],
-                        background: color.bgSurface,
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.lg,
-                        padding: `${space[3]} ${space[4]}`,
-                    }}
-                >
-                    <span
-                        style={{
-                            fontSize: font.size.sm,
-                            fontWeight: font.weight.bold,
-                            color: color.textMuted,
-                            width: '1.75rem',
-                        }}
-                    >
-                        #{i + 1}
-                    </span>
-                    <span
-                        style={{
-                            fontSize: font.size.base,
-                            fontWeight: font.weight.semibold,
-                            color: color.textPrimary,
-                            flex: 1,
-                        }}
-                    >
-                        {w.name}
-                    </span>
-                    <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                        {w.completedCount} completed
-                    </span>
-                    <span
-                        style={{
-                            fontSize: font.size.sm,
-                            color: '#eab308',
-                            fontWeight: font.weight.bold,
-                        }}
-                    >
-                        ★ {w.fieldPoints}
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
+                    <span className="w-7 text-sm font-bold text-slate-400 dark:text-slate-500">#{i + 1}</span>
+                    <span className="flex-1 text-sm font-semibold text-slate-900 dark:text-white">{w.name}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{w.completedCount} completed</span>
+                    <span className="flex items-center gap-1 text-sm font-bold text-amber-500">
+                        <Star className="size-3.5 fill-amber-500" /> {w.fieldPoints}
                     </span>
                 </div>
             ))}
@@ -249,7 +130,13 @@ export default function OfficerReports() {
     return (
         <PageShell>
             <NavBar
-                left={<BackLink to="/war-room">← War Room</BackLink>}
+                left={
+                    <BackLink to="/war-room">
+                        <span className="flex items-center gap-1">
+                            <ArrowLeft className="size-4" /> War Room
+                        </span>
+                    </BackLink>
+                }
                 right={
                     <>
                         <NotificationBell />
@@ -258,127 +145,43 @@ export default function OfficerReports() {
                 }
             />
 
-            <main
-                style={{
-                    maxWidth: '800px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[6]} ${space[16]}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[8],
-                }}
-            >
-                {loading && (
-                    <p style={{ fontSize: font.size.sm, color: color.textMuted }}>
-                        Loading report…
-                    </p>
-                )}
+            <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-6 pb-16 sm:px-6 xl:px-10">
+                {loading && <p className="text-sm text-slate-400 dark:text-slate-500">Loading report…</p>}
                 <ErrorBanner message={error} />
 
                 {report && (
                     <>
                         <div>
-                            <h1
-                                style={{
-                                    fontSize: '1.5rem',
-                                    fontWeight: font.weight.extrabold,
-                                    color: color.textPrimary,
-                                    margin: `0 0 ${space[1]} 0`,
-                                }}
-                            >
-                                {report.ward.name}
-                            </h1>
-                            <p
-                                style={{
-                                    fontSize: font.size.sm,
-                                    color: color.textMuted,
-                                    margin: 0,
-                                }}
-                            >
+                            <h1 className="mb-1 text-2xl font-extrabold text-slate-900 dark:text-white">{report.ward.name}</h1>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
                                 Ward {report.ward.wardNumber} · {report.ward.city}
                             </p>
                         </div>
 
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                                gap: space[4],
-                            }}
-                        >
-                            <StatBlock
-                                label="Health Score"
-                                value={`${report.ward.healthScore}/100`}
-                                accent={color.accent}
-                            />
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                            <StatBlock label="Health Score" value={`${report.ward.healthScore}/100`} accent="primary" />
                             <StatBlock
                                 label="Avg Resolution"
-                                value={
-                                    report.avgResolutionHours
-                                        ? `${report.avgResolutionHours}h`
-                                        : null
-                                }
+                                value={report.avgResolutionHours ? `${report.avgResolutionHours}h` : null}
                                 sub="last 30 days"
-                                accent="#a78bfa"
+                                accent="violet"
                             />
-                            <StatBlock
-                                label="Resolved"
-                                value={report.resolvedCount30d}
-                                sub="last 30 days"
-                                accent={color.success}
-                            />
-                            <StatBlock
-                                label="Stress Band"
-                                value={report.ward.stressBand}
-                                accent="#f59e0b"
-                            />
+                            <StatBlock label="Resolved" value={report.resolvedCount30d} sub="last 30 days" accent="emerald" />
+                            <StatBlock label="Stress Band" value={report.ward.stressBand} accent="amber" />
                         </div>
 
-                        <section
-                            style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
-                        >
-                            <h2
-                                style={{
-                                    fontSize: font.size.md,
-                                    fontWeight: font.weight.bold,
-                                    color: color.textPrimary,
-                                    margin: 0,
-                                }}
-                            >
-                                Status Breakdown
-                            </h2>
+                        <section className="flex flex-col gap-4">
+                            <h2 className="text-base font-bold text-slate-900 dark:text-white">Status Breakdown</h2>
                             <StatusBar breakdown={report.statusBreakdown} />
                         </section>
 
-                        <section
-                            style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
-                        >
-                            <h2
-                                style={{
-                                    fontSize: font.size.md,
-                                    fontWeight: font.weight.bold,
-                                    color: color.textPrimary,
-                                    margin: 0,
-                                }}
-                            >
-                                Top Categories (30 days)
-                            </h2>
+                        <section className="flex flex-col gap-4">
+                            <h2 className="text-base font-bold text-slate-900 dark:text-white">Top Categories (30 days)</h2>
                             <CategoryBreakdown breakdown={report.categoryBreakdown} />
                         </section>
 
-                        <section
-                            style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
-                        >
-                            <h2
-                                style={{
-                                    fontSize: font.size.md,
-                                    fontWeight: font.weight.bold,
-                                    color: color.textPrimary,
-                                    margin: 0,
-                                }}
-                            >
-                                Worker Leaderboard
-                            </h2>
+                        <section className="flex flex-col gap-4">
+                            <h2 className="text-base font-bold text-slate-900 dark:text-white">Worker Leaderboard</h2>
                             <Leaderboard workers={report.workerLeaderboard} />
                         </section>
                     </>

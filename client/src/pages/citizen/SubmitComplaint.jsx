@@ -2,151 +2,80 @@
 
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+    ArrowLeft,
+    Camera,
+    CheckCircle2,
+    Crosshair,
+    MapPin,
+    Repeat2,
+    Sparkles,
+    TriangleAlert,
+    X,
+} from 'lucide-react';
 import { submitComplaintApi, parseComplaintError } from '../../api/complaints.api.js';
 import { COMPLAINT_CATEGORIES } from '../../constants/complaint.constants.js';
 import { PageShell, NavBar, ErrorBanner } from '../../components/citizen/CitizenShell.jsx';
 import { LocationPicker } from '../../components/shared/LocationPicker.jsx';
-import { color, font, space, radius, transition, mk } from '../../theme/index.js';
+import { Field, Input, Textarea, Select } from '../../components/ui/Input.jsx';
+import { PrimaryButton, SecondaryButton } from '../../components/AuthShell.jsx';
+import { cn } from '../../lib/utils';
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
-
-// ── Field wrapper ─────────────────────────────────────────────────────────────
-function Field({ label, required, optional, htmlFor, error, children }) {
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <label
-                style={{
-                    fontSize: font.size.sm,
-                    fontWeight: font.weight.medium,
-                    color: color.textSecondary,
-                }}
-                htmlFor={htmlFor}
-            >
-                {label} {required && <span style={{ color: color.danger }}>*</span>}
-                {optional && (
-                    <span style={{ color: color.textMuted, fontWeight: font.weight.normal }}>
-                        (optional)
-                    </span>
-                )}
-            </label>
-            {children}
-            {error && <span style={{ fontSize: font.size.xs, color: color.danger }}>{error}</span>}
-        </div>
-    );
-}
 
 // ── Success screen ─────────────────────────────────────────────────────────────
 function SuccessScreen({ result, onReset, navigate }) {
     const { complaint, isDuplicate } = result;
     return (
         <PageShell>
-            <div
-                style={{
-                    maxWidth: '440px',
-                    margin: '4rem auto',
-                    background: color.bgSurface,
-                    border: `1px solid ${color.borderDefault}`,
-                    borderRadius: radius.xl,
-                    padding: space[10],
-                    textAlign: 'center',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: space[4],
-                }}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mx-auto my-12 flex max-w-md flex-col items-center gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-10 text-center shadow-[var(--shadow-card)] sm:my-16"
             >
-                <div style={{ fontSize: '3rem' }}>{isDuplicate ? '🔁' : '✅'}</div>
-
-                <h2
-                    style={{
-                        fontSize: '1.4rem',
-                        fontWeight: font.weight.extrabold,
-                        color: color.textPrimary,
-                        margin: 0,
-                    }}
+                <div
+                    className={cn(
+                        'flex size-14 items-center justify-center rounded-full',
+                        isDuplicate ? 'bg-amber-50' : 'bg-emerald-50'
+                    )}
                 >
+                    {isDuplicate ? (
+                        <Repeat2 className="size-7 text-amber-500" />
+                    ) : (
+                        <CheckCircle2 className="size-7 text-emerald-500" />
+                    )}
+                </div>
+
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
                     {isDuplicate ? 'Already reported!' : 'Report submitted!'}
                 </h2>
 
                 {isDuplicate ? (
-                    <p
-                        style={{
-                            fontSize: font.size.base,
-                            color: color.textMuted,
-                            lineHeight: 1.6,
-                            margin: 0,
-                        }}
-                    >
-                        A similar issue already exists nearby. We've linked your report to it. You
-                        can upvote the original to increase its priority.
+                    <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                        A similar issue already exists nearby. We&apos;ve linked your report to it. You can upvote
+                        the original to increase its priority.
                     </p>
                 ) : (
                     <>
-                        <p
-                            style={{
-                                fontSize: font.size.base,
-                                color: color.textMuted,
-                                lineHeight: 1.6,
-                                margin: 0,
-                            }}
-                        >
+                        <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                             Your complaint has been submitted and will be reviewed shortly.
                         </p>
-                        <div
-                            style={{
-                                background: color.bgPage,
-                                borderRadius: radius.md,
-                                padding: `${space[3]} ${space[5]}`,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '0.3rem',
-                                width: '100%',
-                                border: `1px solid ${color.borderFaint}`,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontSize: font.size.xs,
-                                    color: color.textMuted,
-                                    letterSpacing: font.tracking.wide,
-                                    textTransform: 'uppercase',
-                                }}
-                            >
-                                AI classified as
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: font.size.md,
-                                    fontWeight: font.weight.bold,
-                                    color: color.accent,
-                                }}
-                            >
-                                {complaint.category}
-                            </span>
-                            <span style={{ fontSize: font.size.sm, color: color.textSecondary }}>
-                                Severity: <strong>{complaint.severity}/10</strong>
+                        <div className="flex w-full flex-col gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 px-5 py-3">
+                            <span className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">AI classified as</span>
+                            <span className="text-base font-bold text-primary-600">{complaint.category}</span>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
+                                Severity: <strong className="text-slate-700 dark:text-slate-200">{complaint.severity}/10</strong>
                             </span>
                         </div>
                     </>
                 )}
 
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: space[3],
-                        width: '100%',
-                        marginTop: space[2],
-                    }}
-                >
-                    <button onClick={() => navigate('/my-reports')} style={mk.btnPrimary()}>
-                        View my reports
-                    </button>
-                    <button onClick={onReset} style={mk.btnSecondary()}>
-                        Submit another
-                    </button>
+                <div className="mt-2 flex w-full flex-col gap-3">
+                    <PrimaryButton onClick={() => navigate('/my-reports')}>View my reports</PrimaryButton>
+                    <SecondaryButton onClick={onReset}>Submit another</SecondaryButton>
                 </div>
-            </div>
+            </motion.div>
         </PageShell>
     );
 }
@@ -270,150 +199,59 @@ export default function SubmitComplaint() {
         return <SuccessScreen result={result} onReset={handleReset} navigate={navigate} />;
     }
 
-    // ── Shared input style helper ─────────────────────────────────────────────
-    const inp = (hasError) => ({
-        background: color.bgPage,
-        border: `1px solid ${hasError ? color.danger : color.borderDefault}`,
-        borderRadius: radius.md,
-        color: color.textPrimary,
-        fontSize: font.size.base,
-        padding: '0.65rem 0.875rem',
-        outline: 'none',
-        width: '100%',
-        boxSizing: 'border-box',
-        fontFamily: font.sans,
-        transition: transition.fast,
-    });
+    const gpsLabel = {
+        loading: 'Getting location…',
+        ok: 'Location captured — tap to refresh',
+        idle: 'Use my location',
+        error: 'GPS failed — use map below',
+    }[gpsStatus];
 
     return (
         <PageShell>
             <NavBar
                 left={
-                    <Link
-                        to="/dashboard"
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textSecondary,
-                            textDecoration: 'none',
-                        }}
-                    >
-                        ← Dashboard
+                    <Link to="/dashboard" className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700">
+                        <ArrowLeft className="size-4" /> Dashboard
                     </Link>
                 }
-                center={
-                    <span
-                        style={{
-                            fontSize: font.size.base,
-                            fontWeight: font.weight.semibold,
-                            color: color.textPrimary,
-                        }}
-                    >
-                        Report Issue
-                    </span>
-                }
+                center={<span className="text-sm font-semibold text-slate-900 dark:text-white">Report Issue</span>}
                 right={<span />}
             />
 
-            <main
-                style={{
-                    maxWidth: '540px',
-                    margin: '0 auto',
-                    padding: `${space[8]} ${space[5]} ${space[16]}`,
-                }}
-            >
-                <div
-                    style={{
-                        background: color.bgSurface,
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.xl,
-                        padding: `${space[8]} ${space[6]}`,
-                    }}
+            <main className="mx-auto max-w-3xl px-4 py-8 pb-16 sm:px-5 sm:py-10">
+                <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8"
                 >
-                    <h1
-                        style={{
-                            fontSize: '1.3rem',
-                            fontWeight: font.weight.extrabold,
-                            color: color.textPrimary,
-                            margin: `0 0 ${space[1]} 0`,
-                        }}
-                    >
-                        Report a civic issue
-                    </h1>
-                    <p
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textMuted,
-                            margin: `0 0 ${space[6]} 0`,
-                        }}
-                    >
+                    <h1 className="mb-1 text-xl font-extrabold text-slate-900 dark:text-white sm:text-2xl">Report a civic issue</h1>
+                    <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
                         AI will auto-classify your report and score its severity.
                     </p>
 
                     <ErrorBanner message={error} />
 
-                    <form
-                        onSubmit={handleSubmit}
-                        style={{ display: 'flex', flexDirection: 'column', gap: space[6] }}
-                        noValidate
-                    >
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
                         {/* Photo */}
                         <Field label="Photo" required error={fieldErrors.image}>
                             <div
-                                style={{
-                                    border: `2px dashed ${fieldErrors.image ? color.danger : color.borderDefault}`,
-                                    borderRadius: radius.lg,
-                                    minHeight: '180px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    overflow: 'hidden',
-                                    background: preview ? 'transparent' : color.bgPage,
-                                }}
                                 onClick={() => fileRef.current?.click()}
                                 role="button"
                                 tabIndex={0}
                                 onKeyDown={(e) => e.key === 'Enter' && fileRef.current?.click()}
+                                className={cn(
+                                    'flex min-h-[180px] cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed',
+                                    fieldErrors.image ? 'border-rose-300' : 'border-slate-200 dark:border-slate-800',
+                                    !preview && 'bg-surface-50 dark:bg-slate-950'
+                                )}
                             >
                                 {preview ? (
-                                    <img
-                                        src={preview}
-                                        alt="Preview"
-                                        style={{
-                                            width: '100%',
-                                            height: '220px',
-                                            objectFit: 'cover',
-                                            display: 'block',
-                                        }}
-                                    />
+                                    <img src={preview} alt="Preview" className="block h-56 w-full object-cover" />
                                 ) : (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            gap: space[2],
-                                            padding: space[8],
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '2.5rem' }}>📷</span>
-                                        <span
-                                            style={{
-                                                fontSize: font.size.base,
-                                                fontWeight: font.weight.medium,
-                                                color: color.textSecondary,
-                                            }}
-                                        >
-                                            Tap to add photo
-                                        </span>
-                                        <span
-                                            style={{
-                                                fontSize: font.size.xs,
-                                                color: color.textMuted,
-                                            }}
-                                        >
-                                            JPG, PNG or WEBP · max 8MB
-                                        </span>
+                                    <div className="flex flex-col items-center gap-2 px-8 py-10 text-center">
+                                        <Camera className="size-9 text-slate-300 dark:text-slate-600" aria-hidden="true" />
+                                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Tap to add photo</span>
+                                        <span className="text-xs text-slate-400 dark:text-slate-500">JPG, PNG or WEBP · max 8MB</span>
                                     </div>
                                 )}
                             </div>
@@ -422,7 +260,7 @@ export default function SubmitComplaint() {
                                 type="file"
                                 accept="image/jpeg,image/png,image/webp"
                                 onChange={handleImageChange}
-                                style={{ display: 'none' }}
+                                className="hidden"
                             />
                             {preview && (
                                 <button
@@ -431,28 +269,16 @@ export default function SubmitComplaint() {
                                         setImage(null);
                                         setPreview(null);
                                     }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: color.danger,
-                                        fontSize: font.size.xs,
-                                        cursor: 'pointer',
-                                        alignSelf: 'flex-start',
-                                    }}
+                                    className="flex items-center gap-1 self-start text-xs text-rose-600 hover:text-rose-700"
                                 >
-                                    Remove photo
+                                    <X className="size-3.5" /> Remove photo
                                 </button>
                             )}
                         </Field>
 
                         {/* Description */}
-                        <Field
-                            label="Description"
-                            required
-                            htmlFor="description"
-                            error={fieldErrors.description}
-                        >
-                            <textarea
+                        <Field label="Description" required htmlFor="description" error={fieldErrors.description}>
+                            <Textarea
                                 id="description"
                                 value={description}
                                 onChange={(e) => {
@@ -466,62 +292,37 @@ export default function SubmitComplaint() {
                                 }}
                                 rows={4}
                                 placeholder="Describe the issue in detail. e.g. Large pothole near the school gate causing accidents…"
-                                style={{
-                                    ...inp(!!fieldErrors.description),
-                                    resize: 'vertical',
-                                    lineHeight: 1.6,
-                                }}
+                                error={!!fieldErrors.description}
                             />
-                            <div
-                                style={{
-                                    fontSize: font.size.xs,
-                                    color: color.textMuted,
-                                    textAlign: 'right',
-                                }}
-                            >
-                                {description.length}/1000
-                            </div>
+                            <div className="text-right text-xs text-slate-400 dark:text-slate-500">{description.length}/1000</div>
                         </Field>
 
                         {/* Category override */}
                         <Field label="Category" optional htmlFor="category">
-                            <select
-                                id="category"
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value)}
-                                style={{ ...inp(false), cursor: 'pointer' }}
-                            >
+                            <Select id="category" value={category} onChange={(e) => setCategory(e.target.value)}>
                                 <option value="">Let AI decide</option>
                                 {COMPLAINT_CATEGORIES.map((c) => (
                                     <option key={c} value={c}>
                                         {c}
                                     </option>
                                 ))}
-                            </select>
+                            </Select>
                         </Field>
 
                         {/* Location */}
                         <Field label="Location" required error={fieldErrors.coords}>
-                            {/* GPS quick-capture button */}
                             <button
                                 type="button"
                                 onClick={captureGPS}
                                 disabled={gpsStatus === 'loading'}
-                                style={{
-                                    background: color.bgSurface,
-                                    border: `1px solid ${color.borderDefault}`,
-                                    borderRadius: radius.md,
-                                    color: color.textSecondary,
-                                    fontSize: font.size.sm,
-                                    padding: `0.6rem 0.875rem`,
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                }}
+                                className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-left text-sm text-slate-600 dark:text-slate-300 transition-colors hover:bg-surface-50 dark:hover:bg-slate-800 disabled:opacity-60"
                             >
-                                {gpsStatus === 'loading' && '📡 Getting location…'}
-                                {gpsStatus === 'ok' && '📍 Location captured — tap to refresh'}
-                                {gpsStatus === 'idle' && '📍 Use my location'}
-                                {gpsStatus === 'error' && '⚠️ GPS failed — use map below'}
+                                {gpsStatus === 'error' ? (
+                                    <TriangleAlert className="size-4 shrink-0 text-amber-500" />
+                                ) : (
+                                    <Crosshair className={cn('size-4 shrink-0 text-primary-600', gpsStatus === 'loading' && 'animate-spin')} />
+                                )}
+                                {gpsLabel}
                             </button>
 
                             {/* Map pin picker — always visible so citizen can fine-tune */}
@@ -542,75 +343,39 @@ export default function SubmitComplaint() {
                             />
 
                             {lat && lng && (
-                                <p
-                                    style={{
-                                        fontSize: font.size.xs,
-                                        color: color.success,
-                                        margin: 0,
-                                    }}
-                                >
-                                    📍 {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}
-                                    °E
+                                <p className="flex items-center gap-1 text-xs text-emerald-600">
+                                    <MapPin className="size-3.5" /> {parseFloat(lat).toFixed(4)}°N,{' '}
+                                    {parseFloat(lng).toFixed(4)}°E
                                 </p>
                             )}
                         </Field>
 
                         {/* Address */}
                         <Field label="Landmark / address" optional htmlFor="address">
-                            <input
+                            <Input
                                 id="address"
                                 type="text"
                                 value={address}
                                 onChange={(e) => setAddress(e.target.value)}
                                 placeholder="e.g. Near SBI Bank, Sector 12"
-                                style={inp(false)}
                             />
                         </Field>
 
                         {/* AI notice */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: space[2],
-                                alignItems: 'flex-start',
-                                background: color.bgPage,
-                                borderRadius: radius.md,
-                                padding: space[3],
-                                border: `1px solid ${color.borderFaint}`,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    color: color.accent,
-                                    fontSize: font.size.sm,
-                                    marginTop: '0.1rem',
-                                    flexShrink: 0,
-                                }}
-                            >
-                                ✦
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: font.size.xs,
-                                    color: color.textMuted,
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                AI will automatically classify your complaint and score its
-                                severity. This usually takes 2–5 seconds after submission.
+                        <div className="flex items-start gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 p-3">
+                            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary-500" aria-hidden="true" />
+                            <span className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                AI will automatically classify your complaint and score its severity. This usually
+                                takes 2–5 seconds after submission.
                             </span>
                         </div>
 
                         {/* Submit */}
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            style={mk.btnPrimary({ disabled: submitting })}
-                        >
-                            {submitting ? 'Submitting…' : 'Submit Report'}
-                        </button>
+                        <PrimaryButton type="submit" loading={submitting} loadingText="Submitting…">
+                            Submit Report
+                        </PrimaryButton>
                     </form>
-                </div>
+                </motion.div>
             </main>
         </PageShell>
     );

@@ -7,9 +7,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useEffect, useState } from 'react';
+import { MapPin } from 'lucide-react';
 import { MapContainer } from './MapContainer.jsx';
 import { captureMarkerIcon } from '../../config/mapMarkers.js';
-import { color, font, radius, space } from '../../theme/index.js';
 
 function PinLayer({ map, lat, lng, onPinMove }) {
     const markerRef = useRef(null);
@@ -62,22 +62,14 @@ export function LocationPicker({ lat, lng, onChange, height = '280px' }) {
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+        <div className="flex flex-col gap-2">
             <MapContainer height={height} center={center} zoom={16}>
                 {(map) => <PinLayer map={map} lat={lat} lng={lng} onPinMove={handlePinMove} />}
             </MapContainer>
 
-            <p
-                style={{
-                    fontSize: font.size.xs,
-                    color: color.textMuted,
-                    margin: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.3rem',
-                }}
-            >
-                📍 Tap the map or drag the pin to set the exact location
+            <p className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                <MapPin className="size-3.5 shrink-0" />
+                Tap the map or drag the pin to set the exact location
             </p>
         </div>
     );

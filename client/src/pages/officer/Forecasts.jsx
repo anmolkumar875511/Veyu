@@ -1,195 +1,91 @@
 // src/pages/officer/Forecasts.jsx
 
 import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle2, Telescope } from 'lucide-react';
 import { usePolling } from '../../hooks/usePolling.js';
-import {
-    getActiveForecastsApi,
-    acknowledgeForecastApi,
-    getForecastAccuracyApi,
-    parseForecastError,
-} from '../../api/forecast.api.js';
-import {
-    PageShell,
-    NavBar,
-    NavBrand,
-    NavLink,
-    ErrorBanner,
-    SkeletonGrid,
-    EmptyState,
-} from '../../components/officer/OfficerShell.jsx';
+import { getActiveForecastsApi, acknowledgeForecastApi, getForecastAccuracyApi, parseForecastError } from '../../api/forecast.api.js';
+import { PageShell, NavBar, NavBrand, ErrorBanner, SkeletonGrid, EmptyState } from '../../components/officer/OfficerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
-import { color, font, space, radius, transition, mk } from '../../theme/index.js';
-import {
-    FORECAST_TRIGGER_META,
-    FORECAST_STATUS_META,
-} from '../../constants/complaint.constants.js';
+import { FORECAST_TRIGGER_META, FORECAST_STATUS_META } from '../../constants/complaint.constants.js';
+import { getForecastTriggerIcon } from '../../constants/forecastIcons.js';
+import { cn } from '../../lib/utils';
 
 // ── Confidence bar ────────────────────────────────────────────────────────────
 function ConfidenceBar({ confidence }) {
     const pct = Math.round(confidence * 100);
-    const c = confidence >= 0.85 ? color.danger : confidence >= 0.7 ? '#f59e0b' : '#3b82f6';
+    const tone = confidence >= 0.85 ? 'bg-rose-500 text-rose-600' : confidence >= 0.7 ? 'bg-amber-500 text-amber-600' : 'bg-sky-500 text-sky-600';
+    const [barTone, textTone] = tone.split(' ');
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
-            <div
-                style={{
-                    flex: 1,
-                    height: '5px',
-                    background: color.bgPage,
-                    borderRadius: radius.full,
-                    overflow: 'hidden',
-                }}
-            >
-                <div
-                    style={{
-                        width: `${pct}%`,
-                        height: '100%',
-                        background: c,
-                        borderRadius: radius.full,
-                    }}
-                />
+        <div className="flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div className={cn('h-full rounded-full', barTone)} style={{ width: `${pct}%` }} />
             </div>
-            <span
-                style={{
-                    fontSize: '0.72rem',
-                    fontWeight: font.weight.bold,
-                    color: c,
-                    minWidth: '2.2rem',
-                    textAlign: 'right',
-                }}
-            >
-                {pct}%
-            </span>
+            <span className={cn('min-w-[2.2rem] text-right text-xs font-bold', textTone)}>{pct}%</span>
         </div>
     );
 }
 
+const FORECAST_STATUS_TONE = {
+    active: 'text-primary-700 bg-primary-50',
+    confirmed: 'text-emerald-700 bg-emerald-50',
+    expired: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800',
+    dismissed: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800',
+};
+
 // ── Forecast card ─────────────────────────────────────────────────────────────
 function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
     const trigger = FORECAST_TRIGGER_META[forecast.trigger] ?? FORECAST_TRIGGER_META.seasonal;
+    const TriggerIcon = getForecastTriggerIcon(forecast.trigger);
     const statusM = FORECAST_STATUS_META[forecast.status] ?? FORECAST_STATUS_META.active;
+    const statusTone = FORECAST_STATUS_TONE[forecast.status] ?? FORECAST_STATUS_TONE.active;
     const isActive = forecast.status === 'active';
 
     return (
         <div
-            style={{
-                background: color.bgSurface,
-                border: `1px solid ${isActive ? `${trigger.color}44` : color.borderDefault}`,
-                borderRadius: radius.xl,
-                padding: space[5],
-                display: 'flex',
-                flexDirection: 'column',
-                gap: space[4],
-            }}
+            className={cn(
+                'flex flex-col gap-4 rounded-xl border bg-white dark:bg-slate-900 p-5',
+                isActive ? 'border-primary-200' : 'border-slate-200 dark:border-slate-800'
+            )}
         >
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        fontSize: font.size.xs,
-                        fontWeight: font.weight.semibold,
-                    }}
-                >
-                    <span>{trigger.icon}</span>
-                    <span style={{ color: trigger.color }}>{trigger.label}</span>
+            <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: trigger.color }}>
+                    <TriggerIcon className="size-3.5" /> {trigger.label}
                 </span>
-                <span
-                    style={{
-                        fontSize: '0.65rem',
-                        fontWeight: font.weight.bold,
-                        padding: '0.18rem 0.55rem',
-                        borderRadius: radius.full,
-                        color: statusM.color,
-                        background: `${statusM.color}1a`,
-                    }}
-                >
-                    {statusM.label}
-                </span>
+                <span className={cn('rounded-full px-2.5 py-1 text-[0.65rem] font-bold', statusTone)}>{statusM.label}</span>
             </div>
 
             {/* Body */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'baseline',
-                        gap: space[2],
-                    }}
-                >
-                    <span
-                        style={{
-                            fontSize: font.size.base,
-                            fontWeight: font.weight.bold,
-                            color: color.textPrimary,
-                        }}
-                    >
-                        {forecast.wardId?.name ?? 'Unknown ward'}
-                    </span>
-                    <span style={{ fontSize: font.size.xs, color: color.textMuted, flexShrink: 0 }}>
-                        {forecast.category}
-                    </span>
+            <div className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-base font-bold text-slate-900 dark:text-white">{forecast.wardId?.name ?? 'Unknown ward'}</span>
+                    <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">{forecast.category}</span>
                 </div>
 
-                <p
-                    style={{
-                        fontSize: font.size.sm,
-                        color: color.textSecondary,
-                        lineHeight: 1.6,
-                        margin: 0,
-                    }}
-                >
-                    {forecast.summary}
-                </p>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{forecast.summary}</p>
 
                 {forecast.weatherContext?.forecastMm && (
-                    <div
-                        style={{
-                            background: '#3b82f611',
-                            border: '1px solid #3b82f633',
-                            borderRadius: radius.sm,
-                            padding: `${space[2]} ${space[3]}`,
-                            fontSize: font.size.xs,
-                            color: '#93c5fd',
-                        }}
-                    >
-                        🌧️ {forecast.weatherContext.forecastMm}mm forecast on{' '}
-                        {new Date(forecast.weatherContext.forecastDate).toLocaleDateString(
-                            'en-IN',
-                            { day: 'numeric', month: 'short' }
-                        )}{' '}
-                        ({forecast.weatherContext.condition})
+                    <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-700">
+                        {forecast.weatherContext.forecastMm}mm forecast on{' '}
+                        {new Date(forecast.weatherContext.forecastDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} (
+                        {forecast.weatherContext.condition})
                     </div>
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                    <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                        Window:{' '}
-                        {new Date(forecast.predictedStartDate).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                        })}{' '}
-                        –{' '}
-                        {new Date(forecast.predictedEndDate).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                        })}
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                        Window: {new Date(forecast.predictedStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} –{' '}
+                        {new Date(forecast.predictedEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </span>
                     {forecast.expectedMultiplier && (
-                        <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                            Expected {forecast.expectedMultiplier}× normal volume
-                        </span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Expected {forecast.expectedMultiplier}× normal volume</span>
                     )}
                 </div>
 
                 <ConfidenceBar confidence={forecast.confidence} />
 
                 {forecast.historicalYears?.length > 0 && (
-                    <span style={{ fontSize: '0.68rem', color: color.borderDefault }}>
-                        Based on patterns from {forecast.historicalYears.join(', ')}
-                    </span>
+                    <span className="text-[0.68rem] text-slate-300 dark:text-slate-600">Based on patterns from {forecast.historicalYears.join(', ')}</span>
                 )}
             </div>
 
@@ -198,16 +94,15 @@ function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
                 <button
                     onClick={() => onAcknowledge(forecast._id)}
                     disabled={acknowledging === forecast._id}
-                    style={mk.btnPrimary({ disabled: acknowledging === forecast._id })}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-300"
                 >
-                    {acknowledging === forecast._id ? 'Acknowledging…' : '✓ Acknowledge'}
+                    <CheckCircle2 className="size-4" />
+                    {acknowledging === forecast._id ? 'Acknowledging…' : 'Acknowledge'}
                 </button>
             )}
 
             {forecast.acknowledgedBy && (
-                <span
-                    style={{ fontSize: font.size.xs, color: color.textMuted, textAlign: 'center' }}
-                >
+                <span className="text-center text-xs text-slate-400 dark:text-slate-500">
                     Acknowledged {new Date(forecast.acknowledgedAt).toLocaleDateString('en-IN')}
                 </span>
             )}
@@ -218,40 +113,14 @@ function ForecastCard({ forecast, onAcknowledge, acknowledging }) {
 // ── Accuracy badge ────────────────────────────────────────────────────────────
 function AccuracyBadge({ accuracy }) {
     if (!accuracy || accuracy.totalScored === 0) return null;
-    const c =
-        accuracy.accuracyRate >= 70
-            ? color.success
-            : accuracy.accuracyRate >= 50
-              ? '#f59e0b'
-              : color.danger;
+    const tone = accuracy.accuracyRate >= 70 ? 'text-emerald-600' : accuracy.accuracyRate >= 50 ? 'text-amber-600' : 'text-rose-600';
     return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: space[3],
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.xl,
-                padding: `${space[3]} ${space[5]}`,
-            }}
-        >
-            <span style={{ fontSize: '1.5rem', fontWeight: font.weight.extrabold, color: c }}>
-                {accuracy.accuracyRate}%
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                <span
-                    style={{
-                        fontSize: font.size.xs,
-                        color: color.textSecondary,
-                        fontWeight: font.weight.semibold,
-                    }}
-                >
-                    Forecast accuracy
-                </span>
-                <span style={{ fontSize: '0.65rem', color: color.textMuted }}>
-                    {accuracy.confirmed} confirmed · {accuracy.expired} missed ·{' '}
-                    {accuracy.totalScored} scored
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3">
+            <span className={cn('text-2xl font-extrabold', tone)}>{accuracy.accuracyRate}%</span>
+            <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Forecast accuracy</span>
+                <span className="text-[0.65rem] text-slate-400 dark:text-slate-500">
+                    {accuracy.confirmed} confirmed · {accuracy.expired} missed · {accuracy.totalScored} scored
                 </span>
             </div>
         </div>
@@ -261,22 +130,16 @@ function AccuracyBadge({ accuracy }) {
 // ── Confidence filter ─────────────────────────────────────────────────────────
 function ConfidenceFilter({ value, onChange }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
-            <span style={{ fontSize: font.size.xs, color: color.textMuted }}>Min confidence</span>
+        <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-400 dark:text-slate-500">Min confidence</span>
             {[0.5, 0.6, 0.7, 0.85].map((v) => (
                 <button
                     key={v}
                     onClick={() => onChange(v)}
-                    style={{
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.full,
-                        fontSize: font.size.xs,
-                        padding: '0.3rem 0.7rem',
-                        cursor: 'pointer',
-                        background: value === v ? color.bgElevated : 'transparent',
-                        color: value === v ? color.textPrimary : color.textMuted,
-                        transition: transition.fast,
-                    }}
+                    className={cn(
+                        'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                        value === v ? 'border-slate-300 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-surface-50 dark:hover:bg-slate-800'
+                    )}
                 >
                     {Math.round(v * 100)}%
                 </button>
@@ -312,6 +175,7 @@ export default function OfficerForecasts() {
         getForecastAccuracyApi()
             .then(setAccuracy)
             .catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [minConfidence]);
 
     usePolling(fetchForecasts, 60_000, true);
@@ -332,67 +196,17 @@ export default function OfficerForecasts() {
     const activeForecasts = forecasts.filter((f) => f.status === 'active');
     const otherForecasts = forecasts.filter((f) => f.status !== 'active');
 
-    const gridStyle = {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: space[4],
-    };
-
     return (
         <PageShell>
-            <NavBar
-                left={<NavBrand sub="SilentSignal" />}
-                right={
-                    <>
-                        <NavLink to="/war-room">War Room</NavLink>
-                        <NavLink to="/reports">Ward Reports</NavLink>
-                        <NotificationBell />
-                    </>
-                }
-            />
+            <NavBar left={<NavBrand sub="SilentSignal" />} right={<NotificationBell />} />
 
-            <main
-                style={{
-                    maxWidth: '920px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[6]} ${space[16]}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[6],
-                }}
-            >
+            <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 pb-16 sm:px-6 xl:px-10">
                 {/* Header */}
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        flexWrap: 'wrap',
-                        gap: space[4],
-                    }}
-                >
+                <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <h1
-                            style={{
-                                fontSize: '1.4rem',
-                                fontWeight: font.weight.extrabold,
-                                color: color.textPrimary,
-                                margin: `0 0 ${space[1]} 0`,
-                            }}
-                        >
-                            SilentSignal
-                        </h1>
-                        <p
-                            style={{
-                                fontSize: font.size.sm,
-                                color: color.textMuted,
-                                margin: 0,
-                                maxWidth: '420px',
-                                lineHeight: 1.6,
-                            }}
-                        >
-                            Predictive alerts — issues the city hasn't reported yet, but
-                            historically will.
+                        <h1 className="mb-1 text-xl font-extrabold text-slate-900 dark:text-white sm:text-2xl">SilentSignal</h1>
+                        <p className="max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                            Predictive alerts — issues the city hasn&apos;t reported yet, but historically will.
                         </p>
                     </div>
                     <AccuracyBadge accuracy={accuracy} />
@@ -413,57 +227,29 @@ export default function OfficerForecasts() {
 
                 {!loading && forecasts.length === 0 && (
                     <EmptyState
-                        icon="🔭"
+                        icon={Telescope}
                         heading="No active forecasts right now."
                         sub="SilentSignal needs at least 2 years of complaint history to detect seasonal patterns. New forecasts generate automatically every night at 2 AM."
                     />
                 )}
 
                 {!loading && activeForecasts.length > 0 && (
-                    <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
-                        <h2
-                            style={{
-                                fontSize: font.size.md,
-                                fontWeight: font.weight.bold,
-                                color: color.textPrimary,
-                                margin: 0,
-                            }}
-                        >
-                            Active Alerts ({activeForecasts.length})
-                        </h2>
-                        <div style={gridStyle}>
+                    <section className="flex flex-col gap-4">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">Active Alerts ({activeForecasts.length})</h2>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             {activeForecasts.map((f) => (
-                                <ForecastCard
-                                    key={f._id}
-                                    forecast={f}
-                                    onAcknowledge={handleAcknowledge}
-                                    acknowledging={acknowledging}
-                                />
+                                <ForecastCard key={f._id} forecast={f} onAcknowledge={handleAcknowledge} acknowledging={acknowledging} />
                             ))}
                         </div>
                     </section>
                 )}
 
                 {!loading && otherForecasts.length > 0 && (
-                    <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
-                        <h2
-                            style={{
-                                fontSize: font.size.md,
-                                fontWeight: font.weight.bold,
-                                color: color.textPrimary,
-                                margin: 0,
-                            }}
-                        >
-                            Acknowledged / Past
-                        </h2>
-                        <div style={gridStyle}>
+                    <section className="flex flex-col gap-4">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">Acknowledged / Past</h2>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             {otherForecasts.map((f) => (
-                                <ForecastCard
-                                    key={f._id}
-                                    forecast={f}
-                                    onAcknowledge={handleAcknowledge}
-                                    acknowledging={acknowledging}
-                                />
+                                <ForecastCard key={f._id} forecast={f} onAcknowledge={handleAcknowledge} acknowledging={acknowledging} />
                             ))}
                         </div>
                     </section>

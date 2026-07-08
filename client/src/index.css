@@ -1,144 +1,134 @@
-/* ─────────────────────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────
    src/index.css
-   Global reset + Nagarik design tokens.
-   All component-level styles live in their own files.
-───────────────────────────────────────────────────────────────────────────── */
+   Tailwind v4 entrypoint + design tokens for the Veyu civic platform.
+   All component styling is done with Tailwind utility classes — this file
+   only holds tokens, resets, and the handful of things Tailwind can't do
+   (font import, scrollbar, focus-visible, print).
+───────────────────────────────────────────────────────────────────────── */
 
-/* ── Google Fonts — Inter ─────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
 
-/* ── Design tokens ────────────────────────────────────────────────────────── */
-:root {
-    /* Brand */
-    --color-brand: #22d3ee; /* cyan-400 */
-    --color-brand-hover: #06b6d4; /* cyan-500 */
-    --color-brand-dim: #22d3ee22; /* cyan with low opacity */
+/* Class-based dark mode — toggled on <html> by ThemeContext. Lets every
+   `dark:` utility respond to the user's chosen theme instead of only OS
+   preference. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-    /* Background layers */
-    --color-bg-base: #0f172a; /* slate-900  — page background */
-    --color-bg-surface: #1e293b; /* slate-800  — cards, modals */
-    --color-bg-elevated: #334155; /* slate-700  — dropdowns, tooltips */
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-    /* Borders */
-    --color-border: #334155; /* slate-700 */
-    --color-border-light: #1e293b; /* slate-800 */
+    /* Primary brand — deep indigo. Trustworthy, professional, works for a
+       civic/government-adjacent product without feeling corporate-boring. */
+    --color-primary-50: #eef2ff;
+    --color-primary-100: #e0e7ff;
+    --color-primary-200: #c7d2fe;
+    --color-primary-300: #a5b4fc;
+    --color-primary-400: #818cf8;
+    --color-primary-500: #6366f1;
+    --color-primary-600: #4f46e5;
+    --color-primary-700: #4338ca;
+    --color-primary-800: #3730a3;
+    --color-primary-900: #312e81;
+    --color-primary-950: #1e1b4b;
 
-    /* Text */
-    --color-text-primary: #f8fafc; /* slate-50 */
-    --color-text-secondary: #cbd5e1; /* slate-300 */
-    --color-text-muted: #94a3b8; /* slate-400 */
-    --color-text-faint: #475569; /* slate-600 */
+    /* Neutral surface scale — slightly warm slate, used for nearly everything */
+    --color-surface-0: #ffffff;
+    --color-surface-50: #f8fafc;
+    --color-surface-100: #f1f5f9;
+    --color-surface-200: #e2e8f0;
 
-    /* Semantic colors */
-    --color-success: #22c55e; /* green-500 */
-    --color-warning: #f59e0b; /* amber-500 */
-    --color-error: #ef4444; /* red-500 */
-    --color-info: #3b82f6; /* blue-500 */
+    /* Dark-mode surface scale — deep navy, matches the brand mark's backdrop
+       rather than a flat neutral gray, so dark mode still feels like Veyu. */
+    --color-surface-dark-950: #05080f;
+    --color-surface-dark-900: #09111f;
+    --color-surface-dark-800: #0f1a2e;
+    --color-surface-dark-700: #16233b;
+    --color-surface-dark-600: #1e2d47;
 
-    /* Stress band colors (PulseGrid) */
-    --stress-calm: #22c55e;
-    --stress-stable: #3b82f6;
-    --stress-rising: #f59e0b;
-    --stress-critical: #f97316;
-    --stress-emergency: #ef4444;
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+    --shadow-card-hover: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.06);
+    --shadow-popover: 0 10px 30px -6px rgb(15 23 42 / 0.15), 0 4px 10px -4px rgb(15 23 42 / 0.08);
 
-    /* Spacing scale */
-    --space-1: 0.25rem;
-    --space-2: 0.5rem;
-    --space-3: 0.75rem;
-    --space-4: 1rem;
-    --space-6: 1.5rem;
-    --space-8: 2rem;
+    --shadow-card-dark: 0 1px 2px 0 rgb(0 0 0 / 0.2), 0 1px 3px 0 rgb(0 0 0 / 0.24);
+    --shadow-card-hover-dark: 0 4px 16px -2px rgb(0 0 0 / 0.36), 0 2px 8px -2px rgb(0 0 0 / 0.24);
+    --shadow-popover-dark: 0 20px 40px -8px rgb(0 0 0 / 0.5), 0 6px 16px -4px rgb(0 0 0 / 0.32);
 
-    /* Border radius */
-    --radius-sm: 0.375rem;
-    --radius-md: 0.5rem;
-    --radius-lg: 0.75rem;
-    --radius-xl: 1rem;
-    --radius-full: 9999px;
+    --animate-fade-in: fade-in 0.3s ease-out;
+    --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    --animate-scale-in: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    --animate-shimmer: shimmer 2s linear infinite;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6);
-
-    /* Typography */
-    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    @keyframes slide-up {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    @keyframes shimmer {
+        from {
+            background-position: -200% 0;
+        }
+        to {
+            background-position: 200% 0;
+        }
+    }
 }
 
-/* ── Reset ────────────────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
+/* ── Reset & base ─────────────────────────────────────────────────────── */
+* {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
 }
 
 html {
-    font-size: 16px;
-    -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
     font-family: var(--font-sans);
-    background-color: var(--color-bg-base);
-    color: var(--color-text-primary);
+    background-color: var(--color-surface-50);
+    color: #0f172a;
     line-height: 1.6;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.dark body {
+    background-color: var(--color-surface-dark-950);
+    color: #e2e8f0;
 }
 
 #root {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-}
-
-/* ── Typography ────────────────────────────────────────────────────────────── */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    line-height: 1.25;
-    font-weight: 700;
-    color: var(--color-text-primary);
-}
-
-p {
-    color: var(--color-text-secondary);
-}
-
-a {
-    color: var(--color-brand);
-    text-decoration: none;
-}
-
-a:hover {
-    color: var(--color-brand-hover);
-    text-decoration: underline;
-}
-
-/* ── Form elements ─────────────────────────────────────────────────────────── */
-input,
-textarea,
-select,
-button {
-    font-family: inherit;
-    font-size: inherit;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-    outline: 2px solid var(--color-brand);
-    outline-offset: 2px;
-    border-color: var(--color-brand) !important;
 }
 
 button {
@@ -149,26 +139,44 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* ── Scrollbar (Webkit) ────────────────────────────────────────────────────── */
+/* Consistent, visible focus ring across the app. */
+:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.dark :focus-visible {
+    outline-color: var(--color-primary-400);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--color-bg-base);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: var(--radius-full);
+    background: #cbd5e1;
+    border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-faint);
+    background: #94a3b8;
 }
 
-/* ── Utility classes ───────────────────────────────────────────────────────── */
+.dark ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-dark-600);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #2d4266;
+}
+
 .sr-only {
     position: absolute;
     width: 1px;
@@ -181,25 +189,20 @@ button:disabled {
     border-width: 0;
 }
 
-/* Toast slide-in animation — used by ToastContainer in App.jsx */
-@keyframes toast-in {
-    from {
-        transform: translateX(110%);
-        opacity: 0;
+/* ── PulseGrid radar ping ──────────────────────────────────────────────────
+   Used by NerveMapView to draw attention to critical/emergency wards
+   directly on the map — an expanding, fading ring "pinging" outward. */
+@keyframes veyu-pulse-ring {
+    0% {
+        transform: scale(0.5);
+        opacity: 0.55;
     }
-    to {
-        transform: translateX(0);
-        opacity: 1;
+    100% {
+        transform: scale(2.2);
+        opacity: 0;
     }
 }
 
-@keyframes toast-out {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(110%);
-        opacity: 0;
-    }
+.veyu-pulse-ring {
+    animation: veyu-pulse-ring 2.2s cubic-bezier(0.2, 0.7, 0.4, 1) infinite;
 }

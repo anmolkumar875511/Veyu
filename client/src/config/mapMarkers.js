@@ -1,12 +1,15 @@
 // src/config/mapMarkers.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Custom SVG marker icons matching theme/index.js — Google's default red pins
-// don't fit the dark UI. These are inline SVG data URIs so no extra HTTP
+// Custom SVG marker icons matching the app's indigo/slate palette — Google's
+// default red pins don't fit a clean, minimal UI. These are inline SVG data URIs so no extra HTTP
 // requests are needed; they scale crisply on retina screens.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { color } from '../theme/index.js';
-import { SEVERITY_COLOR, CATEGORY_ICONS } from '../constants/complaint.constants.js';
+import { SEVERITY_COLOR } from '../constants/complaint.constants.js';
+
+const WHITE = '#ffffff';
+const PRIMARY = '#4f46e5';
+const DANGER = '#e11d48';
 
 // ── Complaint pin — colored by severity, used on NerveMap public + officer queue ──
 export function complaintMarkerIcon(severity, isSelected = false) {
@@ -19,8 +22,8 @@ export function complaintMarkerIcon(severity, isSelected = false) {
     const svg = `
         <svg width="${size}" height="${size}" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
             ${ring}
-            <circle cx="14" cy="14" r="9" fill="${c}" stroke="${color.bgPage}" stroke-width="2"/>
-            <circle cx="14" cy="14" r="3" fill="${color.bgPage}"/>
+            <circle cx="14" cy="14" r="9" fill="${c}" stroke="${WHITE}" stroke-width="2"/>
+            <circle cx="14" cy="14" r="3" fill="${WHITE}"/>
         </svg>`;
 
     return {
@@ -50,8 +53,8 @@ export function wardMarkerIcon(stressBandColor) {
 export function workerLocationIcon() {
     const svg = `
         <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="${color.accent}" opacity="0.2"/>
-            <circle cx="12" cy="12" r="6" fill="${color.accent}" stroke="${color.bgPage}" stroke-width="2"/>
+            <circle cx="12" cy="12" r="10" fill="${PRIMARY}" opacity="0.2"/>
+            <circle cx="12" cy="12" r="6" fill="${PRIMARY}" stroke="${WHITE}" stroke-width="2"/>
         </svg>`;
 
     return {
@@ -65,8 +68,8 @@ export function workerLocationIcon() {
 export function destinationMarkerIcon() {
     const svg = `
         <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0Z" fill="${color.accent}"/>
-            <circle cx="18" cy="18" r="7" fill="${color.bgPage}"/>
+            <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0Z" fill="${PRIMARY}"/>
+            <circle cx="18" cy="18" r="7" fill="${WHITE}"/>
         </svg>`;
 
     return {
@@ -80,8 +83,8 @@ export function destinationMarkerIcon() {
 export function captureMarkerIcon() {
     const svg = `
         <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0Z" fill="${color.danger}"/>
-            <circle cx="18" cy="18" r="7" fill="${color.bgPage}"/>
+            <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0Z" fill="${DANGER}"/>
+            <circle cx="18" cy="18" r="7" fill="${WHITE}"/>
         </svg>`;
 
     return {

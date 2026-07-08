@@ -67,10 +67,10 @@ export const STRESS_BAND_META = {
 // ── SilentSignal forecast metadata ───────────────────────────────────────────
 
 export const FORECAST_TRIGGER_META = {
-    seasonal: { label: 'Seasonal Pattern', icon: '📅', color: '#a78bfa' },
-    weather: { label: 'Weather Forecast', icon: '🌧️', color: '#3b82f6' },
-    velocity: { label: 'Velocity Spike', icon: '📈', color: '#f59e0b' },
-    combined: { label: 'Combined Signal', icon: '⚡', color: '#ef4444' },
+    seasonal: { label: 'Seasonal Pattern', color: '#a78bfa' },
+    weather: { label: 'Weather Forecast', color: '#3b82f6' },
+    velocity: { label: 'Velocity Spike', color: '#f59e0b' },
+    combined: { label: 'Combined Signal', color: '#ef4444' },
 };
 
 export const FORECAST_STATUS_META = {
@@ -94,20 +94,10 @@ export const STATUS_META = {
     duplicate: { label: 'Duplicate', color: '#64748b', bg: '#64748b11', step: 0 },
 };
 
-// ── Category icons (emoji per category) ──────────────────────────────────────
-
-export const CATEGORY_ICONS = {
-    'Road Damage': '🛣️',
-    Pothole: '⚠️',
-    Garbage: '🗑️',
-    'Water Leakage': '💧',
-    Drainage: '🌊',
-    Streetlight: '💡',
-    Sewage: '🔧',
-    Encroachment: '🚧',
-    'Illegal Dumping': '♻️',
-    Other: '📋',
-};
+// ── Category icons ─────────────────────────────────────────────────────────
+// Icon components now live in src/constants/categoryIcons.js (Lucide, not emoji).
+// Re-exported here for convenience so existing imports of CATEGORY_ICONS still work.
+export { CATEGORY_ICON_MAP as CATEGORY_ICONS, getCategoryIcon } from './categoryIcons.js';
 
 // ── Status filter tabs (for MyComplaints list) ────────────────────────────────
 

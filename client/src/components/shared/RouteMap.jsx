@@ -6,9 +6,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useEffect, useState } from 'react';
+import { Bike, Car, ExternalLink, Footprints } from 'lucide-react';
 import { MapContainer } from './MapContainer.jsx';
 import { workerLocationIcon, destinationMarkerIcon } from '../../config/mapMarkers.js';
-import { color, font, radius, space, mk } from '../../theme/index.js';
+
+const PRIMARY_HEX = '#4f46e5';
 
 function RouteLayer({ map, destination, travelMode, onRouteComputed }) {
     const directionsRendererRef = useRef(null);
@@ -22,7 +24,7 @@ function RouteLayer({ map, destination, travelMode, onRouteComputed }) {
             map,
             suppressMarkers: true, // we draw our own themed markers
             polylineOptions: {
-                strokeColor: color.accent,
+                strokeColor: PRIMARY_HEX,
                 strokeWeight: 4,
                 strokeOpacity: 0.85,
             },
@@ -118,105 +120,52 @@ export function RouteMap({ destination, destinationLabel, height = '320px' }) {
 
     if (!navigator.geolocation) {
         return (
-            <div
-                style={{
-                    padding: space[4],
-                    background: color.dangerSurface,
-                    border: `1px solid ${color.dangerBorder}`,
-                    borderRadius: radius.md,
-                    color: '#fca5a5',
-                    fontSize: font.size.sm,
-                }}
-            >
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                 GPS is not available on this device. Navigate manually using the address below.
             </div>
         );
     }
 
+    const TRAVEL_MODES = [
+        { mode: 'DRIVING', label: 'Drive', icon: Car },
+        { mode: 'WALKING', label: 'Walk', icon: Footprints },
+        { mode: 'BICYCLING', label: 'Bike', icon: Bike },
+    ];
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+        <div className="flex flex-col gap-3">
             {/* Travel mode toggle */}
-            <div style={{ display: 'flex', gap: space[2] }}>
-                {[
-                    { mode: 'DRIVING', label: '🚗 Drive' },
-                    { mode: 'WALKING', label: '🚶 Walk' },
-                    { mode: 'BICYCLING', label: '🚲 Bike' },
-                ].map(({ mode, label }) => (
+            <div className="flex gap-2">
+                {TRAVEL_MODES.map(({ mode, label, icon: Icon }) => (
                     <button
                         key={mode}
                         onClick={() => setTravelMode(mode)}
-                        style={{
-                            flex: 1,
-                            background: travelMode === mode ? color.accentMuted : color.bgSurface,
-                            border: `1px solid ${travelMode === mode ? color.accent : color.borderDefault}`,
-                            borderRadius: radius.md,
-                            color: travelMode === mode ? color.accent : color.textSecondary,
-                            fontSize: font.size.sm,
-                            fontWeight: font.weight.medium,
-                            padding: '0.5rem',
-                            cursor: 'pointer',
-                        }}
+                        className={
+                            'flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-sm font-medium transition-colors ' +
+                            (travelMode === mode
+                                ? 'border-primary-200 bg-primary-50 text-primary-700'
+                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-surface-50 dark:hover:bg-slate-800')
+                        }
                     >
-                        {label}
+                        <Icon className="size-4" /> {label}
                     </button>
                 ))}
             </div>
 
             <MapContainer height={height} zoom={14}>
                 {(map) => (
-                    <RouteLayer
-                        map={map}
-                        destination={destination}
-                        travelMode={travelMode}
-                        onRouteComputed={handleRouteComputed}
-                    />
+                    <RouteLayer map={map} destination={destination} travelMode={travelMode} onRouteComputed={handleRouteComputed} />
                 )}
             </MapContainer>
 
             {/* ETA / distance display */}
             {routeInfo && (
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        background: color.bgSurface,
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.lg,
-                        padding: `${space[3]} ${space[4]}`,
-                    }}
-                >
+                <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
                     <div>
-                        <span
-                            style={{
-                                fontSize: font.size.lg,
-                                fontWeight: font.weight.extrabold,
-                                color: color.accent,
-                            }}
-                        >
-                            {routeInfo.durationText}
-                        </span>
-                        <span
-                            style={{
-                                fontSize: font.size.xs,
-                                color: color.textMuted,
-                                marginLeft: space[2],
-                            }}
-                        >
-                            ({routeInfo.distanceText})
-                        </span>
+                        <span className="text-lg font-extrabold text-primary-600">{routeInfo.durationText}</span>
+                        <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">({routeInfo.distanceText})</span>
                     </div>
-                    {destinationLabel && (
-                        <span
-                            style={{
-                                fontSize: font.size.xs,
-                                color: color.textMuted,
-                                textAlign: 'right',
-                            }}
-                        >
-                            to {destinationLabel}
-                        </span>
-                    )}
+                    {destinationLabel && <span className="text-right text-xs text-slate-400 dark:text-slate-500">to {destinationLabel}</span>}
                 </div>
             )}
 
@@ -225,9 +174,9 @@ export function RouteMap({ destination, destinationLabel, height = '320px' }) {
                     const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}&travelmode=${travelMode.toLowerCase()}`;
                     window.open(url, '_blank', 'noopener,noreferrer');
                 }}
-                style={mk.btnSecondary()}
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 transition-colors hover:bg-surface-50 dark:hover:bg-slate-800"
             >
-                Open in Google Maps app →
+                Open in Google Maps app <ExternalLink className="size-4" />
             </button>
         </div>
     );

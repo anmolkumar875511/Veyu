@@ -2,12 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    getTaskDetailApi,
-    advanceTaskStatusApi,
-    completeTaskApi,
-    parseWorkerError,
-} from '../../api/worker.api.js';
+import { ArrowLeft, CheckCircle2, MapPin, X } from 'lucide-react';
+import { getTaskDetailApi, advanceTaskStatusApi, completeTaskApi, parseWorkerError } from '../../api/worker.api.js';
 import {
     PageShell,
     NavBar,
@@ -27,12 +23,8 @@ import {
 } from '../../components/worker/WorkerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { RouteMap } from '../../components/shared/RouteMap.jsx';
-import { color, font, space, radius, mk } from '../../theme/index.js';
-import {
-    ASSIGNMENT_STATUS_LABELS,
-    ASSIGNMENT_NEXT_ACTION,
-    CATEGORY_ICONS,
-} from '../../constants/complaint.constants.js';
+import { getCategoryIcon } from '../../constants/categoryIcons.js';
+import { ASSIGNMENT_STATUS_LABELS, ASSIGNMENT_NEXT_ACTION } from '../../constants/complaint.constants.js';
 
 export default function WorkerTaskDetail() {
     const { id } = useParams();
@@ -108,12 +100,11 @@ export default function WorkerTaskDetail() {
         return (
             <PageShell>
                 <FullscreenState>
-                    <SuccessCard
-                        icon="✅"
-                        heading="Task completed!"
-                        sub="+10 field points earned. Great work."
-                    >
-                        <button onClick={() => navigate('/tasks')} style={mk.btnPrimary()}>
+                    <SuccessCard icon={CheckCircle2} heading="Task completed!" sub="+10 field points earned. Great work.">
+                        <button
+                            onClick={() => navigate('/tasks')}
+                            className="rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+                        >
                             Back to tasks
                         </button>
                     </SuccessCard>
@@ -125,14 +116,18 @@ export default function WorkerTaskDetail() {
     if (error || !assignment) {
         return (
             <FullscreenState>
-                <p style={{ color: color.textMuted, margin: 0 }}>{error ?? 'Task not found.'}</p>
-                <BackLink to="/tasks">← Back to tasks</BackLink>
+                <p className="text-slate-400 dark:text-slate-500">{error ?? 'Task not found.'}</p>
+                <BackLink to="/tasks">
+                    <span className="flex items-center gap-1">
+                        <ArrowLeft className="size-4" /> Back to tasks
+                    </span>
+                </BackLink>
             </FullscreenState>
         );
     }
 
     const complaint = assignment.complaintId;
-    const icon = CATEGORY_ICONS[complaint?.category] ?? '📋';
+    const CategoryIcon = getCategoryIcon(complaint?.category);
     const nextAction = ASSIGNMENT_NEXT_ACTION[assignment.status];
     const isEnRoute = assignment.status === 'en_route';
     const isOnSite = assignment.status === 'on_site';
@@ -145,80 +140,42 @@ export default function WorkerTaskDetail() {
     return (
         <PageShell>
             <NavBar
-                left={<BackLink to="/tasks">← Tasks</BackLink>}
+                left={
+                    <BackLink to="/tasks">
+                        <span className="flex items-center gap-1">
+                            <ArrowLeft className="size-4" /> Tasks
+                        </span>
+                    </BackLink>
+                }
                 center={<NavTitle>Task Detail</NavTitle>}
                 right={<NotificationBell />}
             />
 
-            <main
-                style={{
-                    maxWidth: '540px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[5]} ${space[16]}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[5],
-                }}
-            >
+            <main className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-6 pb-16 sm:px-5">
                 {/* Complaint image */}
                 <img
                     src={complaint?.imageUrl}
                     alt={complaint?.title}
-                    style={{
-                        width: '100%',
-                        height: '220px',
-                        objectFit: 'cover',
-                        borderRadius: radius.xl,
-                        border: `1px solid ${color.borderDefault}`,
-                    }}
+                    className="h-56 w-full rounded-xl border border-slate-200 dark:border-slate-800 object-cover"
                 />
 
                 {/* Title + meta */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
-                    <h1
-                        style={{
-                            fontSize: '1.2rem',
-                            fontWeight: font.weight.extrabold,
-                            color: color.textPrimary,
-                            margin: 0,
-                            lineHeight: 1.3,
-                        }}
-                    >
-                        {complaint?.title}
-                    </h1>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: space[2],
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                        }}
-                    >
-                        <span style={{ fontSize: font.size.xs, color: color.textSecondary }}>
-                            {icon} {complaint?.category}
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-xl font-extrabold leading-snug text-slate-900 dark:text-white">{complaint?.title}</h1>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                            <CategoryIcon className="size-3.5" /> {complaint?.category}
                         </span>
-                        <AssignmentBadge
-                            status={assignment.status}
-                            label={ASSIGNMENT_STATUS_LABELS[assignment.status]}
-                        />
+                        <AssignmentBadge status={assignment.status} label={ASSIGNMENT_STATUS_LABELS[assignment.status]} />
                         <SeverityTag severity={complaint?.severity} />
                     </div>
                 </div>
 
-                <p
-                    style={{
-                        fontSize: font.size.base,
-                        color: color.textSecondary,
-                        lineHeight: 1.7,
-                        margin: 0,
-                    }}
-                >
-                    {complaint?.description}
-                </p>
+                <p className="text-base leading-relaxed text-slate-600 dark:text-slate-300">{complaint?.description}</p>
 
                 {complaint?.address && (
-                    <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
-                        📍 {complaint.address}
+                    <p className="flex items-center gap-1.5 text-sm text-slate-400 dark:text-slate-500">
+                        <MapPin className="size-4 shrink-0" /> {complaint.address}
                     </p>
                 )}
 
@@ -226,13 +183,9 @@ export default function WorkerTaskDetail() {
 
                 {/* Route map — shown from en_route until task is complete */}
                 {(isEnRoute || isOnSite) && destination && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                    <div className="flex flex-col gap-2">
                         <SectionLabel>Route to location</SectionLabel>
-                        <RouteMap
-                            destination={destination}
-                            destinationLabel={complaint?.address ?? complaint?.title}
-                            height="280px"
-                        />
+                        <RouteMap destination={destination} destinationLabel={complaint?.address ?? complaint?.title} height="280px" />
                     </div>
                 )}
 
@@ -241,31 +194,21 @@ export default function WorkerTaskDetail() {
                 {/* ── Status action card ─────────────────────────────────────── */}
                 {!isCompleted && (
                     <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+                        <div className="flex flex-col gap-3">
                             <SectionLabel>Task progress</SectionLabel>
-                            <span
-                                style={{
-                                    fontSize: '1.1rem',
-                                    fontWeight: font.weight.bold,
-                                    color: color.textPrimary,
-                                }}
-                            >
-                                {ASSIGNMENT_STATUS_LABELS[assignment.status]}
-                            </span>
+                            <span className="text-lg font-bold text-slate-900 dark:text-white">{ASSIGNMENT_STATUS_LABELS[assignment.status]}</span>
 
                             {nextAction && !isOnSite && (
-                                <PrimaryButton
-                                    onClick={handleAdvance}
-                                    loading={advancing}
-                                    loadingText="Updating…"
-                                >
+                                <PrimaryButton onClick={handleAdvance} loading={advancing} loadingText="Updating…">
                                     {nextAction}
                                 </PrimaryButton>
                             )}
 
                             {isOnSite && !showComplete && (
                                 <PrimaryButton onClick={() => setShowComplete(true)}>
-                                    ✓ Complete Task
+                                    <span className="flex items-center justify-center gap-1.5">
+                                        <CheckCircle2 className="size-4" /> Complete Task
+                                    </span>
                                 </PrimaryButton>
                             )}
                         </div>
@@ -275,20 +218,16 @@ export default function WorkerTaskDetail() {
                 {/* ── Completion form ────────────────────────────────────────── */}
                 {showComplete && (
                     <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
+                        <div className="flex flex-col gap-4">
                             <SectionLabel>Proof of completion</SectionLabel>
 
-                            <ImagePicker
-                                preview={proofPreview}
-                                onClick={() => fileRef.current?.click()}
-                                minHeight="150px"
-                            />
+                            <ImagePicker preview={proofPreview} onClick={() => fileRef.current?.click()} minHeight="150px" />
                             <input
                                 ref={fileRef}
                                 type="file"
                                 accept="image/jpeg,image/png,image/webp"
                                 onChange={handleImagePick}
-                                style={{ display: 'none' }}
+                                className="hidden"
                             />
                             {proofPreview && (
                                 <button
@@ -297,16 +236,9 @@ export default function WorkerTaskDetail() {
                                         setProofImage(null);
                                         setProofPreview(null);
                                     }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: color.danger,
-                                        fontSize: font.size.xs,
-                                        cursor: 'pointer',
-                                        alignSelf: 'flex-start',
-                                    }}
+                                    className="flex items-center gap-1 self-start text-xs text-rose-600 hover:text-rose-700"
                                 >
-                                    Remove photo
+                                    <X className="size-3.5" /> Remove photo
                                 </button>
                             )}
 
@@ -316,25 +248,14 @@ export default function WorkerTaskDetail() {
                                 placeholder="Notes about the fix (optional)"
                             />
 
-                            <PrimaryButton
-                                onClick={handleComplete}
-                                loading={completing}
-                                disabled={!proofImage}
-                                loadingText="Submitting…"
-                            >
+                            <PrimaryButton onClick={handleComplete} loading={completing} disabled={!proofImage} loadingText="Submitting…">
                                 Submit &amp; Resolve
                             </PrimaryButton>
 
                             <button
                                 type="button"
                                 onClick={() => setShowComplete(false)}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: color.textMuted,
-                                    fontSize: font.size.sm,
-                                    cursor: 'pointer',
-                                }}
+                                className="text-sm text-slate-400 dark:text-slate-500 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
                             >
                                 Cancel
                             </button>
@@ -344,53 +265,18 @@ export default function WorkerTaskDetail() {
 
                 {/* ── Completed state ────────────────────────────────────────── */}
                 {isCompleted && (
-                    <div
-                        style={{
-                            background: '#052e1611',
-                            border: '1px solid #22c55e33',
-                            borderRadius: radius.xl,
-                            padding: space[5],
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: space[2],
-                        }}
-                    >
-                        <span
-                            style={{
-                                fontSize: font.size.base,
-                                color: color.success,
-                                fontWeight: font.weight.bold,
-                            }}
-                        >
-                            ✓ Task completed
+                    <div className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+                        <span className="flex items-center gap-1.5 text-base font-bold text-emerald-600">
+                            <CheckCircle2 className="size-4" /> Task completed
                         </span>
                         {assignment.completedAt && (
-                            <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                                {new Date(assignment.completedAt).toLocaleString('en-IN')}
-                            </span>
+                            <span className="text-xs text-slate-400 dark:text-slate-500">{new Date(assignment.completedAt).toLocaleString('en-IN')}</span>
                         )}
                         {assignment.completionImageUrl && (
-                            <img
-                                src={assignment.completionImageUrl}
-                                alt="Resolution"
-                                style={{
-                                    width: '100%',
-                                    borderRadius: radius.md,
-                                    marginTop: space[2],
-                                }}
-                            />
+                            <img src={assignment.completionImageUrl} alt="Resolution" className="mt-2 w-full rounded-md" />
                         )}
                         {assignment.completionNote && (
-                            <p
-                                style={{
-                                    fontSize: font.size.sm,
-                                    color: color.textSecondary,
-                                    fontStyle: 'italic',
-                                    margin: 0,
-                                }}
-                            >
-                                "{assignment.completionNote}"
-                            </p>
+                            <p className="text-sm italic text-slate-600 dark:text-slate-300">&quot;{assignment.completionNote}&quot;</p>
                         )}
                     </div>
                 )}

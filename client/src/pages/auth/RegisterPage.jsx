@@ -3,22 +3,21 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { sendOtpApi, getGoogleAuthUrl, parseAuthError } from '../../api/auth.api.js';
 import { getRoleHome } from '../../guards/RouteGuards.jsx';
 import {
-    AuthPage,
-    AuthCard,
-    BrandMark,
+    AuthSplitShell,
     AuthHeading,
     ErrorBanner,
     FormField,
     TextInput,
     PasswordInput,
     PrimaryButton,
+    GoogleButton,
     Divider,
 } from '../../components/AuthShell.jsx';
-import { mk, space, font, color, radius } from '../../theme/index.js';
 
 const INITIAL_FORM = { name: '', email: '', phone: '', password: '' };
 
@@ -36,7 +35,7 @@ function validateClient(form) {
 }
 
 // ── OTP entry sub-screen ───────────────────────────────────────────────────────
-function OtpScreen({ form, onSuccess, onBack }) {
+function OtpScreen({ form, onBack }) {
     const { register } = useAuth();
     const navigate = useNavigate();
 
@@ -55,7 +54,6 @@ function OtpScreen({ form, onSuccess, onBack }) {
         setLoading(true);
         setError(null);
         try {
-            // Use AuthContext register which calls verifyOtpApi internally
             const result = await register({ ...form, code });
             if (result.success) {
                 navigate(getRoleHome('citizen'), { replace: true });
@@ -84,22 +82,12 @@ function OtpScreen({ form, onSuccess, onBack }) {
     }
 
     return (
-        <AuthCard maxWidth="420px">
-            <BrandMark />
+        <AuthSplitShell>
             <button
                 onClick={onBack}
-                style={{
-                    background: 'none',
-                    border: 'none',
-                    color: color.textMuted,
-                    fontSize: font.size.sm,
-                    cursor: 'pointer',
-                    alignSelf: 'flex-start',
-                    padding: 0,
-                    marginBottom: space[2],
-                }}
+                className="mb-5 -ml-1 flex items-center gap-1 self-start rounded-md px-1 py-0.5 text-sm text-slate-500 dark:text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
             >
-                ← Back
+                <ArrowLeft className="size-4" /> Back
             </button>
 
             <AuthHeading
@@ -109,22 +97,9 @@ function OtpScreen({ form, onSuccess, onBack }) {
 
             <ErrorBanner message={error} />
 
-            <form
-                onSubmit={handleVerify}
-                style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}
-                noValidate
-            >
-                {/* OTP input — single large field */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
-                    <label
-                        style={{
-                            fontSize: font.size.sm,
-                            fontWeight: font.weight.medium,
-                            color: color.textSecondary,
-                        }}
-                    >
-                        Verification code
-                    </label>
+            <form onSubmit={handleVerify} className="flex flex-col gap-5" noValidate>
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Verification code</label>
                     <input
                         type="text"
                         inputMode="numeric"
@@ -133,68 +108,33 @@ function OtpScreen({ form, onSuccess, onBack }) {
                         value={code}
                         onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         placeholder="000000"
-                        style={{
-                            background: color.bgPage,
-                            border: `1px solid ${color.borderDefault}`,
-                            borderRadius: radius.md,
-                            color: color.textPrimary,
-                            fontSize: '1.75rem',
-                            fontWeight: font.weight.bold,
-                            fontFamily: 'monospace',
-                            letterSpacing: '0.25em',
-                            padding: '0.75rem',
-                            outline: 'none',
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            textAlign: 'center',
-                        }}
                         autoFocus
                         autoComplete="one-time-code"
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 px-3 py-3 text-center font-mono text-2xl font-bold tracking-[0.35em] text-slate-900 dark:text-white outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
                     />
                 </div>
 
-                <PrimaryButton
-                    loading={loading}
-                    loadingText="Verifying…"
-                    disabled={code.length !== 6}
-                >
-                    Verify & Create Account
+                <PrimaryButton loading={loading} loadingText="Verifying…" disabled={code.length !== 6}>
+                    Verify &amp; create account
                 </PrimaryButton>
             </form>
 
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: space[2],
-                    marginTop: space[4],
-                }}
-            >
+            <div className="mt-5 flex flex-col items-center gap-2">
                 {resendMsg && (
-                    <span style={{ fontSize: font.size.xs, color: color.success }}>
-                        {resendMsg}
+                    <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="size-3.5" /> {resendMsg}
                     </span>
                 )}
                 <button
                     onClick={handleResend}
                     disabled={resending}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: color.accent,
-                        fontSize: font.size.sm,
-                        cursor: 'pointer',
-                        opacity: resending ? 0.6 : 1,
-                    }}
+                    className="text-sm font-medium text-primary-600 transition-opacity hover:text-primary-700 disabled:opacity-60"
                 >
                     {resending ? 'Sending…' : "Didn't receive it? Resend OTP"}
                 </button>
-                <p style={{ fontSize: font.size.xs, color: color.textMuted, margin: 0 }}>
-                    Code expires in 10 minutes
-                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Code expires in 10 minutes.</p>
             </div>
-        </AuthCard>
+        </AuthSplitShell>
     );
 }
 
@@ -243,174 +183,98 @@ export default function RegisterPage() {
         }
     }
 
-    // ── OTP screen ────────────────────────────────────────────────────────────
     if (step === 'otp') {
         return (
-            <AuthPage>
-                <OtpScreen
-                    form={{
-                        name: form.name.trim(),
-                        email: form.email,
-                        password: form.password,
-                        phone: form.phone || undefined,
-                    }}
-                    onBack={() => setStep('form')}
-                />
-            </AuthPage>
+            <OtpScreen
+                form={{
+                    name: form.name.trim(),
+                    email: form.email,
+                    password: form.password,
+                    phone: form.phone || undefined,
+                }}
+                onBack={() => setStep('form')}
+            />
         );
     }
 
-    // ── Registration form ─────────────────────────────────────────────────────
     return (
-        <AuthPage>
-            <AuthCard maxWidth="440px">
-                <BrandMark />
-                <AuthHeading
-                    title="Join your city"
-                    subtitle="Report issues. Track resolution. Build accountability."
-                />
-                <ErrorBanner message={error} />
+        <AuthSplitShell>
+            <AuthHeading title="Join your city" subtitle="Report issues. Track resolution. Build accountability." />
+            <ErrorBanner message={error} />
 
-                {/* Google OAuth button */}
-                <button
-                    type="button"
-                    onClick={() => (window.location.href = getGoogleAuthUrl())}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: space[3],
-                        width: '100%',
-                        background: color.bgSurface,
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.md,
-                        color: color.textPrimary,
-                        fontSize: font.size.base,
-                        fontWeight: font.weight.semibold,
-                        padding: '0.7rem',
-                        cursor: 'pointer',
-                    }}
-                >
-                    <GoogleIcon />
-                    Continue with Google
-                </button>
+            <GoogleButton onClick={() => (window.location.href = getGoogleAuthUrl())}>
+                Continue with Google
+            </GoogleButton>
 
-                <Divider label="or register with email" />
+            <Divider label="or register with email" />
 
-                <form
-                    onSubmit={handleSubmit}
-                    style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}
-                    noValidate
-                >
-                    <FormField label="Full name" htmlFor="name" error={fieldErrors.name}>
-                        <TextInput
-                            id="name"
-                            name="name"
-                            type="text"
-                            autoComplete="name"
-                            value={form.name}
-                            onChange={handleChange}
-                            placeholder="Anmol Kumar"
-                            hasError={!!fieldErrors.name}
-                        />
-                    </FormField>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+                <FormField label="Full name" htmlFor="name" error={fieldErrors.name}>
+                    <TextInput
+                        id="name"
+                        name="name"
+                        type="text"
+                        autoComplete="name"
+                        value={form.name}
+                        onChange={handleChange}
+                        placeholder="Anmol Kumar"
+                        hasError={!!fieldErrors.name}
+                    />
+                </FormField>
 
-                    <FormField label="Email address" htmlFor="email" error={fieldErrors.email}>
-                        <TextInput
-                            id="email"
-                            name="email"
-                            type="email"
-                            autoComplete="email"
-                            value={form.email}
-                            onChange={handleChange}
-                            placeholder="you@example.com"
-                            hasError={!!fieldErrors.email}
-                        />
-                    </FormField>
+                <FormField label="Email address" htmlFor="email" error={fieldErrors.email}>
+                    <TextInput
+                        id="email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        placeholder="you@example.com"
+                        hasError={!!fieldErrors.email}
+                    />
+                </FormField>
 
-                    <FormField
-                        label="Mobile number"
-                        htmlFor="phone"
-                        error={fieldErrors.phone}
-                        optional
-                    >
-                        <TextInput
-                            id="phone"
-                            name="phone"
-                            type="tel"
-                            autoComplete="tel"
-                            value={form.phone}
-                            onChange={handleChange}
-                            placeholder="9876543210"
-                            hasError={!!fieldErrors.phone}
-                        />
-                    </FormField>
+                <FormField label="Mobile number" htmlFor="phone" error={fieldErrors.phone} optional>
+                    <TextInput
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        autoComplete="tel"
+                        value={form.phone}
+                        onChange={handleChange}
+                        placeholder="9876543210"
+                        hasError={!!fieldErrors.phone}
+                    />
+                </FormField>
 
-                    <FormField label="Password" htmlFor="password" error={fieldErrors.password}>
-                        <PasswordInput
-                            id="password"
-                            name="password"
-                            autoComplete="new-password"
-                            value={form.password}
-                            onChange={handleChange}
-                            placeholder="At least 6 characters"
-                            hasError={!!fieldErrors.password}
-                        />
-                    </FormField>
+                <FormField label="Password" htmlFor="password" error={fieldErrors.password}>
+                    <PasswordInput
+                        id="password"
+                        name="password"
+                        autoComplete="new-password"
+                        value={form.password}
+                        onChange={handleChange}
+                        placeholder="At least 6 characters"
+                        hasError={!!fieldErrors.password}
+                    />
+                </FormField>
 
-                    <PrimaryButton loading={sending} loadingText="Sending OTP…">
-                        Send Verification Code
-                    </PrimaryButton>
-                </form>
+                <PrimaryButton loading={sending} loadingText="Sending OTP…">
+                    Send verification code
+                </PrimaryButton>
+            </form>
 
-                <p
-                    style={{
-                        fontSize: font.size.xs,
-                        color: color.textMuted,
-                        textAlign: 'center',
-                        marginTop: space[4],
-                        lineHeight: 1.6,
-                    }}
-                >
-                    By registering you agree to Veyu&apos;s community guidelines.
-                </p>
+            <p className="mt-4 text-center text-xs leading-relaxed text-slate-400 dark:text-slate-500">
+                By registering you agree to Veyu&apos;s community guidelines.
+            </p>
 
-                <p style={mk.footerText()}>
-                    Already have an account?{' '}
-                    <Link to="/login" style={mk.link()}>
-                        Sign in
-                    </Link>
-                </p>
-            </AuthCard>
-        </AuthPage>
-    );
-}
-
-function GoogleIcon() {
-    return (
-        <svg
-            width="18"
-            height="18"
-            viewBox="0 0 18 18"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path
-                d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.12 17.64 11.84 17.64 9.2z"
-                fill="#4285F4"
-            />
-            <path
-                d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
-                fill="#34A853"
-            />
-            <path
-                d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
-                fill="#FBBC05"
-            />
-            <path
-                d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-                fill="#EA4335"
-            />
-        </svg>
+            <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                Already have an account?{' '}
+                <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700">
+                    Sign in
+                </Link>
+            </p>
+        </AuthSplitShell>
     );
 }

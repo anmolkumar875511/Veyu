@@ -1,17 +1,16 @@
 // src/pages/officer/WarRoom.jsx
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
+import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, ChevronUp, Zap } from 'lucide-react';
+import { useCurrentUser } from '../../hooks/useAuthGuards.js';
 import { usePolling } from '../../hooks/usePolling.js';
 import { getTriageQueueApi } from '../../api/officer.api.js';
 import {
     PageShell,
     NavBar,
     NavBrand,
-    NavLink,
     NavUser,
-    NavLogout,
     StatusBadge,
     SeverityBar,
     ErrorBanner,
@@ -21,8 +20,8 @@ import {
     Pagination,
 } from '../../components/officer/OfficerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
-import { color, font, space, radius, transition } from '../../theme/index.js';
-import { CATEGORY_ICONS } from '../../constants/complaint.constants.js';
+import { getCategoryIcon } from '../../constants/categoryIcons.js';
+import { cn } from '../../lib/utils';
 
 const FILTER_TABS = [
     { value: '', label: 'All Active' },
@@ -43,88 +42,96 @@ function formatTimeAgo(dateStr) {
     return `${days}d`;
 }
 
-const td = { padding: `0.75rem 0.875rem`, verticalAlign: 'middle' };
-const th = {
-    textAlign: 'left',
-    fontSize: '0.68rem',
-    fontWeight: font.weight.bold,
-    color: color.textMuted,
-    letterSpacing: '0.05em',
-    textTransform: 'uppercase',
-    padding: `0.75rem 0.875rem`,
-    borderBottom: `1px solid ${color.borderDefault}`,
-};
-
 function QueueRow({ complaint, onClick }) {
-    const icon = CATEGORY_ICONS[complaint.category] ?? '📋';
+    const Icon = getCategoryIcon(complaint.category);
     return (
         <tr
             onClick={onClick}
-            style={{
-                cursor: 'pointer',
-                borderBottom: `1px solid ${color.borderFaint}`,
-                background: complaint.cascadeRisk ? '#7c2d1208' : 'transparent',
-            }}
+            className={cn('cursor-pointer border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-surface-50 dark:hover:bg-slate-800', complaint.cascadeRisk && 'bg-orange-50/40 dark:bg-orange-500/10')}
         >
-            <td style={td}>{complaint.cascadeRisk && <span title="Cascade risk">⚡</span>}</td>
-            <td style={td}>
-                <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+            <td className="px-3.5 py-3 align-middle">
+                {complaint.cascadeRisk && <Zap className="size-4 text-orange-500" title="Cascade risk" />}
             </td>
-            <td style={{ ...td, minWidth: '240px' }}>
-                <span
-                    style={{
-                        display: 'block',
-                        fontSize: font.size.sm,
-                        fontWeight: font.weight.semibold,
-                        color: color.textPrimary,
-                    }}
-                >
-                    {complaint.title}
-                </span>
-                <span
-                    style={{
-                        display: 'block',
-                        fontSize: font.size.xs,
-                        color: color.textMuted,
-                        marginTop: '0.15rem',
-                    }}
-                >
+            <td className="px-3.5 py-3 align-middle">
+                <Icon className="size-4.5 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+            </td>
+            <td className="min-w-[240px] px-3.5 py-3 align-middle">
+                <span className="block text-sm font-semibold text-slate-900 dark:text-white">{complaint.title}</span>
+                <span className="mt-0.5 block text-xs text-slate-400 dark:text-slate-500">
                     {complaint.category} · {complaint.wardId?.name ?? 'Unknown ward'}
                 </span>
             </td>
-            <td style={td}>
+            <td className="px-3.5 py-3 align-middle">
                 <SeverityBar severity={complaint.severity} />
             </td>
-            <td style={td}>
+            <td className="px-3.5 py-3 align-middle">
                 {complaint.upvotes > 0 ? (
-                    <span
-                        style={{
-                            fontSize: font.size.xs,
-                            color: '#f59e0b',
-                            fontWeight: font.weight.bold,
-                        }}
-                    >
-                        ▲ {complaint.upvotes}
+                    <span className="flex items-center gap-0.5 text-xs font-bold text-amber-600">
+                        <ChevronUp className="size-3.5" /> {complaint.upvotes}
                     </span>
                 ) : (
-                    <span style={{ color: color.borderDefault }}>—</span>
+                    <span className="text-slate-300 dark:text-slate-600">—</span>
                 )}
             </td>
-            <td style={td}>
+            <td className="px-3.5 py-3 align-middle">
                 <StatusBadge status={complaint.status} />
             </td>
-            <td style={td}>
-                <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                    {formatTimeAgo(complaint.createdAt)}
-                </span>
+            <td className="px-3.5 py-3 align-middle">
+                <span className="text-xs text-slate-400 dark:text-slate-500">{formatTimeAgo(complaint.createdAt)}</span>
             </td>
         </tr>
     );
 }
 
+// Card layout for the triage queue on small screens — the table is unreadable
+// once it has to horizontally scroll on a phone, so below `md` we render this
+// stacked card instead of the row.
+function QueueCard({ complaint, onClick }) {
+    const Icon = getCategoryIcon(complaint.category);
+    return (
+        <button
+            onClick={onClick}
+            className={cn(
+                'flex w-full flex-col gap-2.5 border-b border-slate-100 dark:border-slate-800 px-4 py-3.5 text-left transition-colors last:border-b-0 hover:bg-surface-50 dark:hover:bg-slate-800',
+                complaint.cascadeRisk && 'bg-orange-50/40 dark:bg-orange-500/10'
+            )}
+        >
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-start gap-2">
+                    <Icon className="mt-0.5 size-4 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+                    <div className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{complaint.title}</span>
+                        <span className="mt-0.5 block text-xs text-slate-400 dark:text-slate-500">
+                            {complaint.category} · {complaint.wardId?.name ?? 'Unknown ward'}
+                        </span>
+                    </div>
+                </div>
+                {complaint.cascadeRisk && <Zap className="size-4 shrink-0 text-orange-500" title="Cascade risk" />}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+                <div className="min-w-[90px] flex-1">
+                    <SeverityBar severity={complaint.severity} />
+                </div>
+                <StatusBadge status={complaint.status} />
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+                {complaint.upvotes > 0 ? (
+                    <span className="flex items-center gap-0.5 font-bold text-amber-600">
+                        <ChevronUp className="size-3.5" /> {complaint.upvotes} vote{complaint.upvotes !== 1 ? 's' : ''}
+                    </span>
+                ) : (
+                    <span>No votes yet</span>
+                )}
+                <span>{formatTimeAgo(complaint.createdAt)}</span>
+            </div>
+        </button>
+    );
+}
+
+const TH_CLASS = 'border-b border-slate-200 dark:border-slate-800 px-3.5 py-3 text-left text-[0.68rem] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500';
+
 export default function WarRoom() {
     const user = useCurrentUser();
-    const logout = useLogout();
     const navigate = useNavigate();
 
     const [complaints, setComplaints] = useState([]);
@@ -156,6 +163,7 @@ export default function WarRoom() {
 
     useEffect(() => {
         fetchQueue(page, statusTab);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, statusTab]);
     usePolling(() => fetchQueue(page, statusTab), 30_000, true);
 
@@ -171,41 +179,19 @@ export default function WarRoom() {
                 left={<NavBrand sub="War Room" />}
                 right={
                     <>
-                        <NavLink to="/forecasts">SilentSignal</NavLink>
-                        <NavLink to="/reports">Reports</NavLink>
-                        <NavLink to="/profile">Profile</NavLink>
                         <NotificationBell />
                         <NavUser name={user?.name} />
-                        <NavLogout onClick={logout} />
                     </>
                 }
             />
-            <main
-                style={{
-                    maxWidth: '1080px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[6]} ${space[16]}`,
-                }}
-            >
-                <div style={{ marginBottom: space[5] }}>
-                    <h1
-                        style={{
-                            fontSize: '1.4rem',
-                            fontWeight: font.weight.extrabold,
-                            color: color.textPrimary,
-                            margin: `0 0 ${space[1]} 0`,
-                        }}
-                    >
-                        Triage Queue
-                    </h1>
-                    <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
-                        {loading
-                            ? 'Loading…'
-                            : `${total} active complaint${total !== 1 ? 's' : ''}`}
+            <main className="mx-auto max-w-7xl px-4 py-6 pb-16 sm:px-6 xl:px-10">
+                <div className="mb-5">
+                    <h1 className="mb-1 text-xl font-extrabold text-slate-900 dark:text-white sm:text-2xl">Triage Queue</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {loading ? 'Loading…' : `${total} active complaint${total !== 1 ? 's' : ''}`}
                         {cascadeCount > 0 && (
-                            <span style={{ color: '#f97316', fontWeight: font.weight.bold }}>
-                                {' '}
-                                · ⚡ {cascadeCount} cascade risk{cascadeCount !== 1 ? 's' : ''}
+                            <span className="ml-1 flex items-center gap-1 font-bold text-orange-600 dark:text-orange-400 sm:inline-flex">
+                                <Zap className="inline size-3.5" /> {cascadeCount} cascade risk{cascadeCount !== 1 ? 's' : ''}
                             </span>
                         )}
                     </p>
@@ -215,47 +201,40 @@ export default function WarRoom() {
                 <ErrorBanner message={error} onRetry={() => fetchQueue(page, statusTab)} />
                 {loading && <SkeletonRows count={5} height="52px" />}
                 {!loading && complaints.length === 0 && (
-                    <EmptyState icon="✅" heading="No complaints in this queue." />
+                    <EmptyState icon={CheckCircle2} heading="No complaints in this queue." />
                 )}
                 {!loading && complaints.length > 0 && (
-                    <div
-                        style={{
-                            background: color.bgSurface,
-                            border: `1px solid ${color.borderDefault}`,
-                            borderRadius: radius.xl,
-                            overflow: 'hidden',
-                        }}
-                    >
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th style={th}></th>
-                                    <th style={th}></th>
-                                    <th style={th}>Complaint</th>
-                                    <th style={th}>Severity</th>
-                                    <th style={th}>Votes</th>
-                                    <th style={th}>Status</th>
-                                    <th style={th}>Age</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {complaints.map((c) => (
-                                    <QueueRow
-                                        key={c._id}
-                                        complaint={c}
-                                        onClick={() => navigate(`/war-room/${c._id}`)}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <>
+                        {/* Mobile / small screens: stacked cards, no horizontal scrolling */}
+                        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 md:hidden">
+                            {complaints.map((c) => (
+                                <QueueCard key={c._id} complaint={c} onClick={() => navigate(`/war-room/${c._id}`)} />
+                            ))}
+                        </div>
+                        {/* Tablet / desktop: full table */}
+                        <div className="hidden overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 md:block">
+                            <table className="w-full min-w-[640px] border-collapse">
+                                <thead>
+                                    <tr>
+                                        <th className={TH_CLASS}></th>
+                                        <th className={TH_CLASS}></th>
+                                        <th className={TH_CLASS}>Complaint</th>
+                                        <th className={TH_CLASS}>Severity</th>
+                                        <th className={TH_CLASS}>Votes</th>
+                                        <th className={TH_CLASS}>Status</th>
+                                        <th className={TH_CLASS}>Age</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {complaints.map((c) => (
+                                        <QueueRow key={c._id} complaint={c} onClick={() => navigate(`/war-room/${c._id}`)} />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
-                <Pagination
-                    page={page}
-                    totalPages={totalPages}
-                    onPrev={() => setPage((p) => p - 1)}
-                    onNext={() => setPage((p) => p + 1)}
-                />
+                <Pagination page={page} totalPages={totalPages} onPrev={() => setPage((p) => p - 1)} onNext={() => setPage((p) => p + 1)} />
             </main>
         </PageShell>
     );

@@ -1,11 +1,8 @@
 // src/pages/worker/Observations.jsx
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-    submitObservationApi,
-    getMyObservationsApi,
-    parseWorkerError,
-} from '../../api/worker.api.js';
+import { ArrowLeft, CheckCircle2, MapPin, Rocket, Sparkles, Star, X } from 'lucide-react';
+import { submitObservationApi, getMyObservationsApi, parseWorkerError } from '../../api/worker.api.js';
 import {
     PageShell,
     NavBar,
@@ -25,91 +22,24 @@ import {
 } from '../../components/worker/WorkerShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { LocationPicker } from '../../components/shared/LocationPicker.jsx';
-import { color, font, space, radius } from '../../theme/index.js';
 
 // ── Observation history row ───────────────────────────────────────────────────
 function ObservationRow({ obs }) {
     return (
-        <div
-            style={{
-                display: 'flex',
-                gap: space[3],
-                alignItems: 'center',
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.lg,
-                padding: `${space[3]} ${space[4]}`,
-            }}
-        >
-            <img
-                src={obs.imageUrl}
-                alt="Observation"
-                style={{
-                    width: '52px',
-                    height: '52px',
-                    objectFit: 'cover',
-                    borderRadius: radius.md,
-                    flexShrink: 0,
-                }}
-            />
-            <div
-                style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.1rem',
-                }}
-            >
-                <span
-                    style={{
-                        fontSize: font.size.sm,
-                        fontWeight: font.weight.semibold,
-                        color: color.textPrimary,
-                    }}
-                >
-                    {obs.aiCategory ?? 'Unclassified'}
-                </span>
-                {obs.note && (
-                    <span
-                        style={{
-                            fontSize: font.size.xs,
-                            color: color.textMuted,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        {obs.note}
-                    </span>
-                )}
-                <span style={{ fontSize: '0.68rem', color: color.borderDefault }}>
-                    {new Date(obs.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                    })}
+        <div className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
+            <img src={obs.imageUrl} alt="Observation" className="size-13 shrink-0 rounded-md object-cover" />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm font-semibold text-slate-900 dark:text-white">{obs.aiCategory ?? 'Unclassified'}</span>
+                {obs.note && <span className="truncate text-xs text-slate-400 dark:text-slate-500">{obs.note}</span>}
+                <span className="text-[0.68rem] text-slate-300 dark:text-slate-600">
+                    {new Date(obs.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
             </div>
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: '0.3rem',
-                    flexShrink: 0,
-                }}
-            >
+            <div className="flex shrink-0 flex-col items-end gap-1">
                 <ObservationBadge status={obs.status} />
                 {obs.pointsAwarded > 0 && (
-                    <span
-                        style={{
-                            fontSize: '0.7rem',
-                            color: '#eab308',
-                            fontWeight: font.weight.bold,
-                        }}
-                    >
-                        ★ +{obs.pointsAwarded}
+                    <span className="flex items-center gap-0.5 text-xs font-bold text-amber-500">
+                        <Star className="size-3 fill-amber-500" /> +{obs.pointsAwarded}
                     </span>
                 )}
             </div>
@@ -120,16 +50,9 @@ function ObservationRow({ obs }) {
 // ── Field label ───────────────────────────────────────────────────────────────
 function FieldLabel({ children, htmlFor, required }) {
     return (
-        <label
-            htmlFor={htmlFor}
-            style={{
-                fontSize: font.size.sm,
-                fontWeight: font.weight.medium,
-                color: color.textSecondary,
-            }}
-        >
+        <label htmlFor={htmlFor} className="text-sm font-medium text-slate-700 dark:text-slate-200">
             {children}
-            {required && <span style={{ color: color.danger, marginLeft: space[1] }}>*</span>}
+            {required && <span className="ml-1 text-rose-500">*</span>}
         </label>
     );
 }
@@ -164,7 +87,7 @@ export default function WorkerObservations() {
 
     useEffect(() => {
         fetchHistory();
-    }, []);
+    }, [fetchHistory]);
 
     function handleImageChange(e) {
         const file = e.target.files?.[0];
@@ -236,55 +159,32 @@ export default function WorkerObservations() {
     return (
         <PageShell>
             <NavBar
-                left={<BackLink to="/tasks">← Tasks</BackLink>}
+                left={
+                    <BackLink to="/tasks">
+                        <span className="flex items-center gap-1">
+                            <ArrowLeft className="size-4" /> Tasks
+                        </span>
+                    </BackLink>
+                }
                 center={<NavTitle>FieldMesh</NavTitle>}
                 right={<NotificationBell />}
             />
 
-            <main
-                style={{
-                    maxWidth: '540px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[5]} ${space[16]}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[8],
-                }}
-            >
+            <main className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-6 pb-16 sm:px-5">
                 {/* Intro */}
                 <div>
-                    <h1
-                        style={{
-                            fontSize: '1.3rem',
-                            fontWeight: font.weight.extrabold,
-                            color: color.textPrimary,
-                            margin: `0 0 ${space[1]} 0`,
-                        }}
-                    >
-                        Report an Observation
-                    </h1>
-                    <p
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textMuted,
-                            lineHeight: 1.6,
-                            margin: 0,
-                        }}
-                    >
-                        Spotted something on your route? Report it directly — no citizen complaint
-                        needed. AI will classify it instantly.
+                    <h1 className="mb-1 text-xl font-extrabold text-slate-900 dark:text-white sm:text-2xl">Report an Observation</h1>
+                    <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                        Spotted something on your route? Report it directly — no citizen complaint needed. AI will classify it
+                        instantly.
                     </p>
                 </div>
 
                 {/* ── Success state ──────────────────────────────────────────── */}
                 {result && (
                     <SuccessCard
-                        icon={result.autoElevated ? '🚀' : '✅'}
-                        heading={
-                            result.autoElevated
-                                ? 'Auto-elevated to complaint!'
-                                : 'Observation submitted'
-                        }
+                        icon={result.autoElevated ? Rocket : CheckCircle2}
+                        heading={result.autoElevated ? 'Auto-elevated to complaint!' : 'Observation submitted'}
                         sub={
                             result.autoElevated
                                 ? 'High AI confidence — this was instantly promoted to a verified complaint.'
@@ -299,16 +199,7 @@ export default function WorkerObservations() {
                         <PointsBadge points={result.autoElevated ? 15 : 2} />
                         <button
                             onClick={resetForm}
-                            style={{
-                                background: color.accent,
-                                border: 'none',
-                                borderRadius: `${radius.md}`,
-                                color: color.accentText,
-                                fontSize: font.size.base,
-                                fontWeight: font.weight.bold,
-                                padding: `0.65rem ${space[6]}`,
-                                cursor: 'pointer',
-                            }}
+                            className="rounded-lg bg-primary-600 px-6 py-2.5 text-base font-bold text-white transition-colors hover:bg-primary-700"
                         >
                             Report another
                         </button>
@@ -317,26 +208,19 @@ export default function WorkerObservations() {
 
                 {/* ── Form ──────────────────────────────────────────────────── */}
                 {!result && (
-                    <form
-                        onSubmit={handleSubmit}
-                        style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}
-                        noValidate
-                    >
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
                         <ErrorBanner message={error} />
 
                         {/* Photo */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <div className="flex flex-col gap-2">
                             <FieldLabel required>Photo</FieldLabel>
-                            <ImagePicker
-                                preview={preview}
-                                onClick={() => fileRef.current?.click()}
-                            />
+                            <ImagePicker preview={preview} onClick={() => fileRef.current?.click()} />
                             <input
                                 ref={fileRef}
                                 type="file"
                                 accept="image/jpeg,image/png,image/webp"
                                 onChange={handleImageChange}
-                                style={{ display: 'none' }}
+                                className="hidden"
                             />
                             {preview && (
                                 <button
@@ -345,22 +229,15 @@ export default function WorkerObservations() {
                                         setImage(null);
                                         setPreview(null);
                                     }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: color.danger,
-                                        fontSize: font.size.xs,
-                                        cursor: 'pointer',
-                                        alignSelf: 'flex-start',
-                                    }}
+                                    className="flex items-center gap-1 self-start text-xs text-rose-600 hover:text-rose-700"
                                 >
-                                    Remove photo
+                                    <X className="size-3.5" /> Remove photo
                                 </button>
                             )}
                         </div>
 
                         {/* Note */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <div className="flex flex-col gap-2">
                             <FieldLabel htmlFor="note">Note (optional)</FieldLabel>
                             <Textarea
                                 id="note"
@@ -371,7 +248,7 @@ export default function WorkerObservations() {
                         </div>
 
                         {/* Location */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <div className="flex flex-col gap-2">
                             <FieldLabel required>Location</FieldLabel>
                             <GpsButton status={gpsStatus} onClick={captureGPS} />
 
@@ -388,21 +265,14 @@ export default function WorkerObservations() {
                             />
 
                             {lat && lng && (
-                                <p
-                                    style={{
-                                        fontSize: font.size.xs,
-                                        color: color.success,
-                                        margin: 0,
-                                    }}
-                                >
-                                    📍 {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}
-                                    °E
+                                <p className="flex items-center gap-1 text-xs text-emerald-600">
+                                    <MapPin className="size-3.5" /> {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}°E
                                 </p>
                             )}
                         </div>
 
                         {/* Landmark */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <div className="flex flex-col gap-2">
                             <FieldLabel htmlFor="address">Landmark (optional)</FieldLabel>
                             <Input
                                 id="address"
@@ -413,36 +283,11 @@ export default function WorkerObservations() {
                         </div>
 
                         {/* AI notice */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: space[2],
-                                alignItems: 'flex-start',
-                                background: color.bgSurface,
-                                borderRadius: radius.md,
-                                padding: space[3],
-                                border: `1px solid ${color.borderFaint}`,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    color: color.accent,
-                                    fontSize: font.size.sm,
-                                    marginTop: '0.1rem',
-                                    flexShrink: 0,
-                                }}
-                            >
-                                ✦
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: font.size.xs,
-                                    color: color.textMuted,
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                AI will classify your photo instantly. Confidence ≥ 80%
-                                auto-elevates to a verified complaint and awards 15 field points.
+                        <div className="flex items-start gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 p-3">
+                            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary-500" aria-hidden="true" />
+                            <span className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                AI will classify your photo instantly. Confidence ≥ 80% auto-elevates to a verified complaint and
+                                awards 15 field points.
                             </span>
                         </div>
 
@@ -453,25 +298,14 @@ export default function WorkerObservations() {
                 )}
 
                 {/* ── History ───────────────────────────────────────────────── */}
-                <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
-                    <h2
-                        style={{
-                            fontSize: font.size.md,
-                            fontWeight: font.weight.bold,
-                            color: color.textPrimary,
-                            margin: 0,
-                        }}
-                    >
-                        Recent Observations
-                    </h2>
+                <section className="flex flex-col gap-4">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Recent Observations</h2>
                     {histLoading && <SkeletonRows count={3} height="72px" />}
                     {!histLoading && observations.length === 0 && (
-                        <p style={{ fontSize: font.size.sm, color: color.textMuted }}>
-                            No observations submitted yet.
-                        </p>
+                        <p className="text-sm text-slate-400 dark:text-slate-500">No observations submitted yet.</p>
                     )}
                     {!histLoading && observations.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                        <div className="flex flex-col gap-2">
                             {observations.map((o) => (
                                 <ObservationRow key={o._id} obs={o} />
                             ))}

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { ArrowLeft, CheckCircle2, ClipboardList, MapPin, Repeat2, RotateCcw, XCircle, Zap } from 'lucide-react';
 import {
     getOfficerComplaintDetailApi,
     updateComplaintStatusApi,
@@ -17,7 +18,6 @@ import {
     BackLink,
     NavTitle,
     FullscreenState,
-    StatusBadge,
     SectionLabel,
     MetaGrid,
     ErrorBanner,
@@ -32,12 +32,9 @@ import {
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
 import { MapContainer } from '../../components/shared/MapContainer.jsx';
 import { complaintMarkerIcon } from '../../config/mapMarkers.js';
-import { color, font, space, radius } from '../../theme/index.js';
-import {
-    COMPLAINT_STATUS_LABELS,
-    ASSIGNMENT_STATUS_LABELS,
-    STATUS_META,
-} from '../../constants/complaint.constants.js';
+import { getStatusTheme } from '../../lib/roleTheme';
+import { cn } from '../../lib/utils';
+import { COMPLAINT_STATUS_LABELS, ASSIGNMENT_STATUS_LABELS } from '../../constants/complaint.constants.js';
 
 // ── Static complaint location map — read-only pin showing where issue is ──────
 function ComplaintPinLayer({ map, complaint }) {
@@ -69,57 +66,18 @@ function ComplaintPinMap({ complaint }) {
 function StatusHistory({ history }) {
     if (!history?.length) return null;
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+        <div className="flex flex-col gap-3">
             <SectionLabel>History</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+            <div className="flex flex-col gap-3">
                 {[...history].reverse().map((h, i) => {
-                    const m = STATUS_META[h.status] ?? STATUS_META.submitted;
+                    const theme = getStatusTheme(h.status);
                     return (
-                        <div
-                            key={i}
-                            style={{ display: 'flex', alignItems: 'flex-start', gap: space[3] }}
-                        >
-                            <span
-                                style={{
-                                    width: '0.5rem',
-                                    height: '0.5rem',
-                                    borderRadius: radius.full,
-                                    background: m.color,
-                                    marginTop: '0.3rem',
-                                    flexShrink: 0,
-                                }}
-                            />
+                        <div key={i} className="flex items-start gap-3">
+                            <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', theme.dot)} />
                             <div>
-                                <span
-                                    style={{
-                                        fontSize: font.size.sm,
-                                        fontWeight: font.weight.semibold,
-                                        color: color.textPrimary,
-                                    }}
-                                >
-                                    {COMPLAINT_STATUS_LABELS[h.status]}
-                                </span>
-                                {h.note && (
-                                    <span
-                                        style={{
-                                            fontSize: font.size.sm,
-                                            color: color.textSecondary,
-                                        }}
-                                    >
-                                        {' '}
-                                        — {h.note}
-                                    </span>
-                                )}
-                                <span
-                                    style={{
-                                        display: 'block',
-                                        fontSize: font.size.xs,
-                                        color: color.textMuted,
-                                        marginTop: '0.1rem',
-                                    }}
-                                >
-                                    {new Date(h.changedAt).toLocaleString('en-IN')}
-                                </span>
+                                <span className="text-sm font-semibold text-slate-900 dark:text-white">{COMPLAINT_STATUS_LABELS[h.status]}</span>
+                                {h.note && <span className="text-sm text-slate-500 dark:text-slate-400"> — {h.note}</span>}
+                                <span className="mt-0.5 block text-xs text-slate-400 dark:text-slate-500">{new Date(h.changedAt).toLocaleString('en-IN')}</span>
                             </div>
                         </div>
                     );
@@ -165,6 +123,7 @@ export default function OfficerComplaintDetail() {
 
     useEffect(() => {
         fetchDetail();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     async function handleVerify() {
@@ -188,10 +147,7 @@ export default function OfficerComplaintDetail() {
         setActionLoading(true);
         setActionErr(null);
         try {
-            const d = await updateComplaintStatusApi(id, {
-                status: 'rejected',
-                note: rejectNote.trim(),
-            });
+            const d = await updateComplaintStatusApi(id, { status: 'rejected', note: rejectNote.trim() });
             setComplaint(d.complaint);
             setShowReject(false);
         } catch (e) {
@@ -221,10 +177,7 @@ export default function OfficerComplaintDetail() {
         setActionLoading(true);
         setActionErr(null);
         try {
-            const d = await dispatchToWorkerApi(id, {
-                workerId: selectedWorker,
-                instructions: instructions.trim() || undefined,
-            });
+            const d = await dispatchToWorkerApi(id, { workerId: selectedWorker, instructions: instructions.trim() || undefined });
             setComplaint(d.complaint);
             setShowDispatch(false);
             fetchDetail();
@@ -243,10 +196,7 @@ export default function OfficerComplaintDetail() {
         setReassigning(true);
         setActionErr(null);
         try {
-            await reassignWorkerApi(id, {
-                newWorkerId: newWorker,
-                reason: reassignReason.trim() || undefined,
-            });
+            await reassignWorkerApi(id, { newWorkerId: newWorker, reason: reassignReason.trim() || undefined });
             setShowReassign(false);
             fetchDetail();
         } catch (e) {
@@ -261,20 +211,22 @@ export default function OfficerComplaintDetail() {
         return (
             <FullscreenState>
                 <p>{error ?? 'Not found.'}</p>
-                <BackLink to="/war-room">← War Room</BackLink>
+                <BackLink to="/war-room">
+                    <span className="flex items-center gap-1">
+                        <ArrowLeft className="size-4" /> War Room
+                    </span>
+                </BackLink>
             </FullscreenState>
         );
 
-    const statusColor = STATUS_META[complaint.status]?.color ?? color.textSecondary;
+    const statusTheme = getStatusTheme(complaint.status);
     const isAssigned = ['assigned', 'in_progress'].includes(complaint.status);
 
     const WorkerSelect = ({ value, onChange }) =>
         workersLoading ? (
-            <span style={{ fontSize: font.size.sm, color: color.textMuted }}>Loading…</span>
+            <span className="text-sm text-slate-400 dark:text-slate-500">Loading…</span>
         ) : workers.length === 0 ? (
-            <span style={{ fontSize: font.size.sm, color: color.textMuted }}>
-                No workers available.
-            </span>
+            <span className="text-sm text-slate-400 dark:text-slate-500">No workers available.</span>
         ) : (
             <Select value={value} onChange={onChange}>
                 <option value="">Choose worker…</option>
@@ -289,7 +241,13 @@ export default function OfficerComplaintDetail() {
     return (
         <PageShell>
             <NavBar
-                left={<BackLink to="/war-room">← War Room</BackLink>}
+                left={
+                    <BackLink to="/war-room">
+                        <span className="flex items-center gap-1">
+                            <ArrowLeft className="size-4" /> War Room
+                        </span>
+                    </BackLink>
+                }
                 right={
                     <>
                         <NotificationBell />
@@ -297,122 +255,48 @@ export default function OfficerComplaintDetail() {
                     </>
                 }
             />
-            <main
-                style={{
-                    maxWidth: '1000px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[6]} ${space[16]}`,
-                }}
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: space[6] }}>
+            <main className="mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 xl:px-10">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
                     {/* LEFT */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
-                        <img
-                            src={complaint.imageUrl}
-                            alt={complaint.title}
-                            style={{
-                                width: '100%',
-                                height: '320px',
-                                objectFit: 'cover',
-                                borderRadius: radius.xl,
-                                border: `1px solid ${color.borderDefault}`,
-                            }}
-                        />
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                justifyContent: 'space-between',
-                                gap: space[4],
-                            }}
-                        >
-                            <h1
-                                style={{
-                                    fontSize: '1.3rem',
-                                    fontWeight: font.weight.extrabold,
-                                    color: color.textPrimary,
-                                    margin: 0,
-                                    lineHeight: 1.3,
-                                }}
-                            >
-                                {complaint.title}
-                            </h1>
+                    <div className="flex flex-col gap-5">
+                        <img src={complaint.imageUrl} alt={complaint.title} className="h-72 w-full rounded-xl border border-slate-200 dark:border-slate-800 object-cover sm:h-80" />
+                        <div className="flex items-start justify-between gap-4">
+                            <h1 className="text-xl font-extrabold leading-snug text-slate-900 dark:text-white sm:text-2xl">{complaint.title}</h1>
                             <span
-                                style={{
-                                    fontSize: font.size.xs,
-                                    fontWeight: font.weight.bold,
-                                    padding: '0.3rem 0.75rem',
-                                    borderRadius: radius.full,
-                                    whiteSpace: 'nowrap',
-                                    color: statusColor,
-                                    background: `${statusColor}1a`,
-                                }}
+                                className={cn(
+                                    'shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold',
+                                    statusTheme.text,
+                                    statusTheme.bg
+                                )}
                             >
                                 {COMPLAINT_STATUS_LABELS[complaint.status]}
                             </span>
                         </div>
                         {complaint.cascadeRisk && (
-                            <div
-                                style={{
-                                    background: '#7c2d1215',
-                                    border: '1px solid #f9731644',
-                                    borderRadius: radius.md,
-                                    padding: `${space[3]} ${space[4]}`,
-                                    fontSize: font.size.sm,
-                                    color: '#fb923c',
-                                }}
-                            >
-                                ⚡ Cascade risk detected nearby.
+                            <div className="flex items-center gap-2 rounded-lg border border-orange-200 dark:border-orange-900/50 bg-orange-50 dark:bg-orange-500/10 px-4 py-3 text-sm text-orange-700 dark:text-orange-300">
+                                <Zap className="size-4 shrink-0" /> Cascade risk detected nearby.
                             </div>
                         )}
                         {complaint.duplicateOf && (
-                            <div
-                                style={{
-                                    background: color.bgSurface,
-                                    border: `1px solid ${color.borderDefault}`,
-                                    borderRadius: radius.md,
-                                    padding: `${space[3]} ${space[4]}`,
-                                    fontSize: font.size.sm,
-                                    color: color.textSecondary,
-                                }}
-                            >
-                                🔁 Duplicate of: {complaint.duplicateOf.title}
+                            <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                                <Repeat2 className="size-4 shrink-0" /> Duplicate of: {complaint.duplicateOf.title}
                             </div>
                         )}
-                        <p
-                            style={{
-                                fontSize: font.size.base,
-                                color: color.textSecondary,
-                                lineHeight: 1.7,
-                                margin: 0,
-                            }}
-                        >
-                            {complaint.description}
-                        </p>
+                        <p className="text-base leading-relaxed text-slate-600 dark:text-slate-300">{complaint.description}</p>
                         <MetaGrid
+                            columns={2}
                             items={[
                                 { label: 'Category', value: complaint.category },
                                 { label: 'Severity', value: `${complaint.severity ?? '—'}/10` },
                                 { label: 'Ward', value: complaint.wardId?.name },
-                                {
-                                    label: 'AI Confidence',
-                                    value: complaint.aiConfidence
-                                        ? `${Math.round(complaint.aiConfidence * 100)}%`
-                                        : '—',
-                                },
+                                { label: 'AI Confidence', value: complaint.aiConfidence ? `${Math.round(complaint.aiConfidence * 100)}%` : '—' },
                                 { label: 'Reported by', value: complaint.createdBy?.name },
-                                { label: 'Upvotes', value: `▲ ${complaint.upvotes}` },
+                                { label: 'Upvotes', value: complaint.upvotes },
                             ]}
                         />
                         {complaint.address && (
-                            <p
-                                style={{
-                                    fontSize: font.size.sm,
-                                    color: color.textMuted,
-                                    margin: 0,
-                                }}
-                            >
-                                📍 {complaint.address}
+                            <p className="flex items-center gap-1.5 text-sm text-slate-400 dark:text-slate-500">
+                                <MapPin className="size-4 shrink-0" /> {complaint.address}
                             </p>
                         )}
 
@@ -422,24 +306,22 @@ export default function OfficerComplaintDetail() {
 
                     {/* RIGHT */}
                     <div>
-                        <Card style={{ position: 'sticky', top: '72px' }}>
-                            <div
-                                style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}
-                            >
+                        <Card className="lg:sticky lg:top-[72px]">
+                            <div className="flex flex-col gap-3">
                                 <SectionLabel>Actions</SectionLabel>
                                 <ErrorBanner message={actionErr} />
 
                                 {complaint.status === 'submitted' && (
                                     <>
-                                        <BtnPrimary
-                                            onClick={handleVerify}
-                                            loading={actionLoading}
-                                            loadingText="Verifying…"
-                                        >
-                                            ✓ Verify
+                                        <BtnPrimary onClick={handleVerify} loading={actionLoading} loadingText="Verifying…">
+                                            <span className="flex items-center justify-center gap-1.5">
+                                                <CheckCircle2 className="size-4" /> Verify
+                                            </span>
                                         </BtnPrimary>
                                         <BtnDanger onClick={() => setShowReject((v) => !v)}>
-                                            ✗ Reject
+                                            <span className="flex items-center justify-center gap-1.5">
+                                                <XCircle className="size-4" /> Reject
+                                            </span>
                                         </BtnDanger>
                                         {showReject && (
                                             <>
@@ -449,10 +331,7 @@ export default function OfficerComplaintDetail() {
                                                     placeholder="Reason for rejection…"
                                                     rows={3}
                                                 />
-                                                <BtnDangerSolid
-                                                    onClick={handleReject}
-                                                    loading={actionLoading}
-                                                >
+                                                <BtnDangerSolid onClick={handleReject} loading={actionLoading}>
                                                     Confirm Rejection
                                                 </BtnDangerSolid>
                                             </>
@@ -467,24 +346,15 @@ export default function OfficerComplaintDetail() {
                                             loadWorkers();
                                         }}
                                     >
-                                        📋 Dispatch to Worker
+                                        <span className="flex items-center justify-center gap-1.5">
+                                            <ClipboardList className="size-4" /> Dispatch to Worker
+                                        </span>
                                     </BtnPrimary>
                                 )}
                                 {showDispatch && (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: space[2],
-                                            borderTop: `1px solid ${color.borderDefault}`,
-                                            paddingTop: space[3],
-                                        }}
-                                    >
+                                    <div className="flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
                                         <SectionLabel>Dispatch</SectionLabel>
-                                        <WorkerSelect
-                                            value={selectedWorker}
-                                            onChange={(e) => setSelectedWorker(e.target.value)}
-                                        />
+                                        <WorkerSelect value={selectedWorker} onChange={(e) => setSelectedWorker(e.target.value)} />
                                         <Textarea
                                             value={instructions}
                                             onChange={(e) => setInstructions(e.target.value)}
@@ -499,53 +369,17 @@ export default function OfficerComplaintDetail() {
                                         >
                                             Confirm
                                         </BtnPrimary>
-                                        <BtnGhost onClick={() => setShowDispatch(false)}>
-                                            Cancel
-                                        </BtnGhost>
+                                        <BtnGhost onClick={() => setShowDispatch(false)}>Cancel</BtnGhost>
                                     </div>
                                 )}
 
                                 {isAssigned && assignment && (
-                                    <div
-                                        style={{
-                                            borderTop: `1px solid ${color.borderDefault}`,
-                                            paddingTop: space[3],
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: space[2],
-                                        }}
-                                    >
+                                    <div className="flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
                                         <SectionLabel>Assigned worker</SectionLabel>
-                                        <p
-                                            style={{
-                                                fontSize: font.size.md,
-                                                fontWeight: font.weight.bold,
-                                                color: color.textPrimary,
-                                                margin: 0,
-                                            }}
-                                        >
-                                            {assignment.workerId?.name}
-                                        </p>
-                                        <span
-                                            style={{
-                                                fontSize: font.size.xs,
-                                                color: '#a78bfa',
-                                                fontWeight: font.weight.semibold,
-                                            }}
-                                        >
-                                            {ASSIGNMENT_STATUS_LABELS[assignment.status]}
-                                        </span>
+                                        <p className="text-base font-bold text-slate-900 dark:text-white">{assignment.workerId?.name}</p>
+                                        <span className="text-xs font-semibold text-violet-600">{ASSIGNMENT_STATUS_LABELS[assignment.status]}</span>
                                         {assignment.instructions && (
-                                            <p
-                                                style={{
-                                                    fontSize: font.size.sm,
-                                                    color: color.textMuted,
-                                                    fontStyle: 'italic',
-                                                    margin: 0,
-                                                }}
-                                            >
-                                                "{assignment.instructions}"
-                                            </p>
+                                            <p className="text-sm italic text-slate-400 dark:text-slate-500">&quot;{assignment.instructions}&quot;</p>
                                         )}
 
                                         {!showReassign && (
@@ -554,39 +388,18 @@ export default function OfficerComplaintDetail() {
                                                     setShowReassign(true);
                                                     loadWorkers();
                                                 }}
-                                                style={{
-                                                    background: 'none',
-                                                    border: `1px solid ${color.borderDefault}`,
-                                                    borderRadius: radius.md,
-                                                    color: color.textMuted,
-                                                    fontSize: font.size.xs,
-                                                    padding: space[2],
-                                                    cursor: 'pointer',
-                                                }}
+                                                className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 p-2 text-xs text-slate-500 dark:text-slate-400 transition-colors hover:bg-surface-50 dark:hover:bg-slate-800"
                                             >
-                                                ↺ Reassign
+                                                <RotateCcw className="size-3.5" /> Reassign
                                             </button>
                                         )}
                                         {showReassign && (
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: space[2],
-                                                    borderTop: `1px solid ${color.borderDefault}`,
-                                                    paddingTop: space[2],
-                                                }}
-                                            >
+                                            <div className="flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800 pt-2">
                                                 <SectionLabel>Reassign to</SectionLabel>
-                                                <WorkerSelect
-                                                    value={newWorker}
-                                                    onChange={(e) => setNewWorker(e.target.value)}
-                                                />
+                                                <WorkerSelect value={newWorker} onChange={(e) => setNewWorker(e.target.value)} />
                                                 <Textarea
                                                     value={reassignReason}
-                                                    onChange={(e) =>
-                                                        setReassignReason(e.target.value)
-                                                    }
+                                                    onChange={(e) => setReassignReason(e.target.value)}
                                                     placeholder="Reason (optional)"
                                                     rows={2}
                                                 />
@@ -598,55 +411,27 @@ export default function OfficerComplaintDetail() {
                                                 >
                                                     Confirm
                                                 </BtnPrimary>
-                                                <BtnGhost onClick={() => setShowReassign(false)}>
-                                                    Cancel
-                                                </BtnGhost>
+                                                <BtnGhost onClick={() => setShowReassign(false)}>Cancel</BtnGhost>
                                             </div>
                                         )}
                                     </div>
                                 )}
 
                                 {complaint.status === 'resolved' && (
-                                    <div
-                                        style={{
-                                            background: '#052e1611',
-                                            border: '1px solid #22c55e33',
-                                            borderRadius: radius.md,
-                                            padding: space[3],
-                                            fontSize: font.size.sm,
-                                            color: '#4ade80',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: space[2],
-                                        }}
-                                    >
-                                        ✓ Resolved{' '}
-                                        {complaint.resolvedAt &&
-                                            new Date(complaint.resolvedAt).toLocaleDateString(
-                                                'en-IN'
-                                            )}
+                                    <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                                        <span className="flex items-center gap-1.5">
+                                            <CheckCircle2 className="size-4" /> Resolved{' '}
+                                            {complaint.resolvedAt && new Date(complaint.resolvedAt).toLocaleDateString('en-IN')}
+                                        </span>
                                         {complaint.resolutionImageUrl && (
-                                            <img
-                                                src={complaint.resolutionImageUrl}
-                                                alt="Resolution"
-                                                style={{ width: '100%', borderRadius: radius.sm }}
-                                            />
+                                            <img src={complaint.resolutionImageUrl} alt="Resolution" className="w-full rounded-md" />
                                         )}
                                     </div>
                                 )}
 
                                 {complaint.status === 'rejected' && (
-                                    <div
-                                        style={{
-                                            background: '#450a0a11',
-                                            border: '1px solid #7f1d1d44',
-                                            borderRadius: radius.md,
-                                            padding: space[3],
-                                            fontSize: font.size.sm,
-                                            color: '#f87171',
-                                        }}
-                                    >
-                                        ✗ Rejected
+                                    <div className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                                        <XCircle className="size-4" /> Rejected
                                     </div>
                                 )}
                             </div>

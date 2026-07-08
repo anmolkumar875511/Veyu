@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { ProtectedRoute, RoleRoute, PublicOnlyRoute } from './guards/RouteGuards.jsx';
 import { lazy, Suspense } from 'react';
+import { FullPageSpinner } from './components/ui';
 
 // ── Auth
 const LoginPage = lazy(() => import('./pages/auth/LoginPage.jsx'));
@@ -30,6 +31,7 @@ const WorkerObservations = lazy(() => import('./pages/worker/Observations.jsx'))
 
 // ── Public
 const PublicNerveMap = lazy(() => import('./pages/public/NerveMap.jsx'));
+const LandingPage = lazy(() => import('./pages/public/LandingPage.jsx'));
 
 // ── Admin
 const WardManagement = lazy(() => import('./pages/admin/WardManagement.jsx'));
@@ -38,19 +40,8 @@ const CreateStaffPage = lazy(() => import('./pages/admin/CreateStaffPage.jsx'));
 
 function PageFallback() {
     return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100vh',
-                background: '#09111f',
-                color: '#6e93b8',
-                fontFamily: "'Inter', system-ui, sans-serif",
-                fontSize: '0.875rem',
-            }}
-        >
-            Loading…
+        <div className="flex h-screen w-full items-center justify-center bg-surface-50">
+            <FullPageSpinner label="Loading…" />
         </div>
     );
 }
@@ -62,6 +53,7 @@ export default function AppRouter() {
                 <Suspense fallback={<PageFallback />}>
                     <Routes>
                         {/* ── Public ──────────────────────────────────────── */}
+                        <Route path="/" element={<LandingPage />} />
                         <Route path="/map" element={<PublicNerveMap />} />
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
@@ -119,7 +111,6 @@ export default function AppRouter() {
                         </Route>
 
                         {/* ── Fallbacks ─────────────────────────────────────── */}
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </Suspense>

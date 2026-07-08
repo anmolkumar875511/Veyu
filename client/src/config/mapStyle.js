@@ -1,45 +1,44 @@
 // src/config/mapStyle.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Custom Google Maps style — dark navy theme matching theme/index.js exactly.
-// Default Google Maps (light grey roads, yellow highways, green parks) clashes
-// hard with Veyu's dark UI. This style desaturates everything except the
-// signal colors the app actually uses: cyan (accent), and status colors for
-// markers (handled separately via custom marker icons, not map style).
+// Custom Google Maps style — clean, minimal light theme matching the app's
+// indigo/slate design system. Default Google Maps (busy POI icons, saturated
+// greens/yellows) competes with the UI, so this desaturates everything except
+// roads and the accent color used for highways.
 //
 // Generated for use with the Google Maps JavaScript API `styles` option:
 //   new google.maps.Map(el, { styles: VEYU_MAP_STYLE, ...otherOptions })
 //
-// Color reference (must match theme/index.js if that file changes):
-//   bgPage:        #09111f
-//   bgSurface:     #111d2e
-//   borderDefault: #243c58
-//   textSecondary: #6e93b8
-//   textMuted:     #354e66
-//   accent:        #22d3ee
+// Color reference (keep in sync with src/index.css @theme tokens):
+//   surface-50:   #f8fafc
+//   surface-100:  #f1f5f9
+//   slate-200:    #e2e8f0
+//   slate-400:    #94a3b8
+//   slate-500:    #64748b
+//   primary-600:  #4f46e5
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const VEYU_MAP_STYLE = [
     // ── Base canvas ──────────────────────────────────────────────────────────
-    { elementType: 'geometry', stylers: [{ color: '#09111f' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#09111f' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#6e93b8' }] },
+    { elementType: 'geometry', stylers: [{ color: '#f8fafc' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#64748b' }] },
     { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
 
     // ── Administrative boundaries (ward/district lines) ────────────────────
     {
         featureType: 'administrative',
         elementType: 'geometry',
-        stylers: [{ color: '#243c58' }],
+        stylers: [{ color: '#cbd5e1' }],
     },
     {
         featureType: 'administrative.country',
         elementType: 'geometry.stroke',
-        stylers: [{ color: '#354e66' }],
+        stylers: [{ color: '#94a3b8' }],
     },
     {
         featureType: 'administrative.locality',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#6e93b8' }],
+        stylers: [{ color: '#475569' }],
     },
     {
         featureType: 'administrative.neighborhood',
@@ -50,22 +49,22 @@ export const VEYU_MAP_STYLE = [
     {
         featureType: 'poi',
         elementType: 'geometry',
-        stylers: [{ color: '#111d2e' }],
+        stylers: [{ color: '#f1f5f9' }],
     },
     {
         featureType: 'poi',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#354e66' }],
+        stylers: [{ color: '#94a3b8' }],
     },
     {
         featureType: 'poi.park',
         elementType: 'geometry',
-        stylers: [{ color: '#0f2418' }],
+        stylers: [{ color: '#e7f3ec' }],
     },
     {
         featureType: 'poi.park',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#2d4a3a' }],
+        stylers: [{ color: '#86a893' }],
     },
     {
         featureType: 'poi.business',
@@ -76,73 +75,73 @@ export const VEYU_MAP_STYLE = [
     {
         featureType: 'road',
         elementType: 'geometry',
-        stylers: [{ color: '#1c2e45' }],
+        stylers: [{ color: '#ffffff' }],
     },
     {
         featureType: 'road',
         elementType: 'geometry.stroke',
-        stylers: [{ color: '#0c1726' }],
+        stylers: [{ color: '#e2e8f0' }],
     },
     {
         featureType: 'road',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#6e93b8' }],
+        stylers: [{ color: '#64748b' }],
     },
     {
         featureType: 'road.highway',
         elementType: 'geometry',
-        stylers: [{ color: '#243c58' }],
+        stylers: [{ color: '#e0e7ff' }],
     },
     {
         featureType: 'road.highway',
         elementType: 'geometry.stroke',
-        stylers: [{ color: '#0c1726' }],
+        stylers: [{ color: '#c7d2fe' }],
     },
     {
         featureType: 'road.highway',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#22d3ee' }],
+        stylers: [{ color: '#4f46e5' }],
     },
     {
         featureType: 'road.arterial',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#6e93b8' }],
+        stylers: [{ color: '#64748b' }],
     },
     {
         featureType: 'road.local',
         elementType: 'geometry',
-        stylers: [{ color: '#172236' }],
+        stylers: [{ color: '#f8fafc' }],
     },
 
     // ── Transit — subtle, not a primary use case here ───────────────────────
     {
         featureType: 'transit',
         elementType: 'geometry',
-        stylers: [{ color: '#172236' }],
+        stylers: [{ color: '#f1f5f9' }],
     },
     {
         featureType: 'transit.station',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#354e66' }],
+        stylers: [{ color: '#94a3b8' }],
     },
 
-    // ── Water — cyan-tinted dark, ties into accent color ────────────────────
+    // ── Water — soft indigo-tinted, ties into accent color ──────────────────
     {
         featureType: 'water',
         elementType: 'geometry',
-        stylers: [{ color: '#0a1825' }],
+        stylers: [{ color: '#dbeafe' }],
     },
     {
         featureType: 'water',
         elementType: 'labels.text.fill',
-        stylers: [{ color: '#1c4a56' }],
+        stylers: [{ color: '#7dabc9' }],
     },
 ];
 
 // ── Map default options — pair with VEYU_MAP_STYLE on every map instance ────
 export const VEYU_MAP_DEFAULTS = {
     styles: VEYU_MAP_STYLE,
-    disableDefaultUI: true, // we build custom controls matching theme
+    disableDefaultUI: true, // we build custom controls matching the app UI
     zoomControl: true,
     zoomControlOptions: {
         position: 7, // google.maps.ControlPosition.RIGHT_BOTTOM (avoid magic number import at module load)
@@ -152,11 +151,12 @@ export const VEYU_MAP_DEFAULTS = {
     mapTypeControl: false,
     clickableIcons: false, // prevent accidental POI clicks stealing taps
     gestureHandling: 'greedy', // single-finger pan on mobile (no two-finger requirement)
-    backgroundColor: '#09111f', // matches color.bgPage — prevents white flash while tiles load
+    backgroundColor: '#f8fafc', // matches surface-50 — prevents dark flash while tiles load
 };
 
 // ── City-wide default center/zoom — override per-deployment ─────────────────
 // Set these from your actual city coordinates (same values as CITY_LAT/CITY_LON
 // used by weather.service.js on the backend, for consistency).
-export const VEYU_DEFAULT_CENTER = { lat: 25.4358, lng: 81.8463 }; // Prayagraj example
+export const VEYU_CITY_NAME = 'Bareilly'; // Shown on the admin profile page — set to your deployment's city.
+export const VEYU_DEFAULT_CENTER = { lat: 28.3670, lng: 79.4304 }; // Bareilly example
 export const VEYU_DEFAULT_ZOOM = 12;

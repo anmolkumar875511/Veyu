@@ -1,52 +1,48 @@
 // src/pages/public/NerveMap.jsx
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, Trophy, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { usePolling } from '../../hooks/usePolling.js';
 import { getPulseGridSnapshotApi, getWardLeaderboardApi } from '../../api/ward.api.js';
 import {
-    PageShell, NavBar, NavBrand, NavLink, NavCta,
-    ErrorBanner, SkeletonGrid, SkeletonRows,
-    StressBand, StressBandLegend, VelocityBar,
+    PageShell,
+    NavBar,
+    NavBrand,
+    NavLink,
+    NavCta,
+    ErrorBanner,
+    SkeletonGrid,
+    SkeletonRows,
+    StressBand,
+    StressBandLegend,
+    VelocityBar,
 } from '../../components/admin/AdminShell.jsx';
 import { NerveMapView } from '../../components/shared/NerveMapView.jsx';
-import { color, font, space, radius, transition } from '../../theme/index.js';
 import { STRESS_BAND_META } from '../../constants/complaint.constants.js';
+import { cn } from '../../lib/utils';
 
 // ── Stress tile (PulseGrid card) ──────────────────────────────────────────────
 function StressTile({ ward }) {
     const meta = STRESS_BAND_META[ward.stressBand] ?? STRESS_BAND_META.stable;
     return (
-        <div style={{
-            background: color.bgSurface,
-            border: `1px solid ${meta.color}44`,
-            borderRadius: radius.xl,
-            padding: space[5],
-            display: 'flex', flexDirection: 'column', gap: space[3],
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.7rem', color: color.textMuted, fontWeight: font.weight.semibold }}>
-                    Ward {ward.wardNumber}
-                </span>
+        <div className="flex flex-col gap-3 rounded-xl border bg-white dark:bg-slate-900 p-5" style={{ borderColor: `${meta.color}44` }}>
+            <div className="flex items-center justify-between">
+                <span className="text-[0.7rem] font-semibold text-slate-400 dark:text-slate-500">Ward {ward.wardNumber}</span>
                 <StressBand band={ward.stressBand} />
             </div>
 
-            <span style={{ fontSize: font.size.base, fontWeight: font.weight.bold, color: color.textPrimary }}>
-                {ward.name}
-            </span>
+            <span className="text-base font-bold text-slate-900 dark:text-white">{ward.name}</span>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="flex justify-between">
                 {[
                     { value: `${ward.pulseVelocity?.toFixed(1)}×`, label: 'velocity' },
-                    { value: ward.complaintsLast48h,                label: 'last 48h' },
-                    { value: ward.healthScore,                      label: 'health'   },
+                    { value: ward.complaintsLast48h, label: 'last 48h' },
+                    { value: ward.healthScore, label: 'health' },
                 ].map(({ value, label }) => (
-                    <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', alignItems: 'center' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: font.weight.extrabold, color: color.textPrimary }}>
-                            {value}
-                        </span>
-                        <span style={{ fontSize: '0.62rem', color: color.textMuted }}>{label}</span>
+                    <div key={label} className="flex flex-col items-center gap-0.5">
+                        <span className="text-base font-extrabold text-slate-900 dark:text-white">{value}</span>
+                        <span className="text-[0.62rem] text-slate-400 dark:text-slate-500">{label}</span>
                     </div>
                 ))}
             </div>
@@ -58,48 +54,35 @@ function StressTile({ ward }) {
 
 // ── Leaderboard row ───────────────────────────────────────────────────────────
 function LeaderRow({ ward }) {
-    const meta  = STRESS_BAND_META[ward.stressBand] ?? STRESS_BAND_META.stable;
+    const meta = STRESS_BAND_META[ward.stressBand] ?? STRESS_BAND_META.stable;
     const isTop = ward.rank === 1;
 
     return (
-        <div style={{
-            display: 'flex', alignItems: 'center', gap: space[4],
-            background: isTop ? `${color.success}08` : color.bgSurface,
-            border: `1px solid ${isTop ? `${color.success}33` : color.borderDefault}`,
-            borderRadius: radius.xl, padding: `${space[4]} ${space[5]}`,
-        }}>
-            <span style={{
-                fontSize: font.size.md, fontWeight: font.weight.extrabold,
-                color: isTop ? color.success : color.textMuted,
-                width: '2.25rem', flexShrink: 0,
-            }}>
+        <div
+            className={cn(
+                'flex items-center gap-4 rounded-xl border px-5 py-4',
+                isTop ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+            )}
+        >
+            <span className={cn('w-9 shrink-0 text-lg font-extrabold', isTop ? 'text-emerald-600' : 'text-slate-400 dark:text-slate-500')}>
                 #{ward.rank}
             </span>
 
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                <span style={{ fontSize: font.size.base, fontWeight: font.weight.semibold, color: color.textPrimary }}>
-                    {ward.name}
-                </span>
-                <span style={{ fontSize: font.size.xs, color: color.textMuted }}>Ward {ward.wardNumber}</span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm font-semibold text-slate-900 dark:text-white">{ward.name}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">Ward {ward.wardNumber}</span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                <span style={{ fontSize: font.size.sm, color: color.textSecondary, fontWeight: font.weight.semibold }}>
-                    {ward.stats?.resolutionRate ?? 0}% resolved
-                </span>
-                <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
+            <div className="flex flex-col items-end gap-0.5">
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{ward.stats?.resolutionRate ?? 0}% resolved</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">
                     {ward.stats?.avgResolutionHours ? `${ward.stats.avgResolutionHours}h avg` : '—'}
                 </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: space[2], flexShrink: 0 }}>
-                <span style={{ fontSize: font.size.md, fontWeight: font.weight.extrabold, color: color.accent }}>
-                    {ward.healthScore}
-                </span>
-                <span style={{
-                    width: '0.5rem', height: '0.5rem', borderRadius: radius.full,
-                    background: meta.color, display: 'inline-block',
-                }} />
+            <div className="flex shrink-0 items-center gap-2">
+                <span className="text-lg font-extrabold text-primary-600">{ward.healthScore}</span>
+                <span className="inline-block size-2 rounded-full" style={{ background: meta.color }} />
             </div>
         </div>
     );
@@ -109,69 +92,65 @@ function LeaderRow({ ward }) {
 export default function PublicNerveMap() {
     const { isAuthenticated, user } = useAuth();
 
-    const [pulseWards,  setPulseWards]  = useState([]);
+    const [pulseWards, setPulseWards] = useState([]);
     const [leaderboard, setLeaderboard] = useState([]);
-    const [loading,     setLoading]     = useState(true);
-    const [error,       setError]       = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
 
     const fetchAll = useCallback(async () => {
         try {
-            const [pulse, board] = await Promise.all([
-                getPulseGridSnapshotApi(),
-                getWardLeaderboardApi(),
-            ]);
+            const [pulse, board] = await Promise.all([getPulseGridSnapshotApi(), getWardLeaderboardApi()]);
             setPulseWards(pulse.wards ?? []);
             setLeaderboard(board.wards ?? []);
             setLastUpdated(new Date());
             setError(null);
-        } catch { setError('Could not load city data.'); }
-        finally { setLoading(false); }
+        } catch {
+            setError('Could not load city data.');
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    useEffect(() => { fetchAll(); }, []);
+    useEffect(() => {
+        fetchAll();
+    }, [fetchAll]);
     usePolling(fetchAll, 60_000, true);
 
     const emergencyCount = pulseWards.filter((w) => w.stressBand === 'emergency').length;
-    const criticalCount  = pulseWards.filter((w) => w.stressBand === 'critical').length;
+    const criticalCount = pulseWards.filter((w) => w.stressBand === 'critical').length;
 
-    const dashLink = isAuthenticated
-        ? (user?.role === 'citizen' ? '/dashboard' : '/war-room')
-        : null;
+    const dashLink = isAuthenticated ? (user?.role === 'citizen' ? '/dashboard' : '/war-room') : null;
 
     return (
         <PageShell>
             <NavBar
                 left={<NavBrand />}
                 right={
-                    <>
-                        {isAuthenticated ? (
-                            <NavLink to={dashLink}>Go to dashboard →</NavLink>
-                        ) : (
-                            <>
-                                <NavLink to="/login">Sign in</NavLink>
-                                <NavCta to="/register">Get started</NavCta>
-                            </>
-                        )}
-                    </>
+                    isAuthenticated ? (
+                        <NavLink to={dashLink}>
+                            <span className="flex items-center gap-1">
+                                Go to dashboard <ArrowRight className="size-3.5" />
+                            </span>
+                        </NavLink>
+                    ) : (
+                        <>
+                            <NavLink to="/login">Sign in</NavLink>
+                            <NavCta to="/register">Get started</NavCta>
+                        </>
+                    )
                 }
             />
 
-            <main style={{
-                maxWidth: '920px', margin: '0 auto',
-                padding: `${space[10]} ${space[6]} ${space[16]}`,
-                display: 'flex', flexDirection: 'column', gap: space[10],
-            }}>
+            <main className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 pb-16 sm:px-6 xl:px-10">
                 {/* Hero */}
-                <section style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: space[3], alignItems: 'center' }}>
-                    <h1 style={{ fontSize: '2rem', fontWeight: font.weight.extrabold, color: color.textPrimary, margin: 0, letterSpacing: font.tracking.tight }}>
-                        City Pulse
-                    </h1>
-                    <p style={{ fontSize: font.size.base, color: color.textMuted, margin: 0, maxWidth: '420px', lineHeight: 1.6 }}>
+                <section className="flex flex-col items-center gap-3 text-center">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-3xl">City Pulse</h1>
+                    <p className="max-w-md text-base leading-relaxed text-slate-500 dark:text-slate-400">
                         Live infrastructure health across every ward — updated automatically every 60 seconds.
                     </p>
                     {lastUpdated && (
-                        <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
                             Last updated {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                     )}
@@ -181,73 +160,58 @@ export default function PublicNerveMap() {
 
                 {/* Alert banner */}
                 {!loading && (emergencyCount > 0 || criticalCount > 0) && (
-                    <div style={{
-                        background: '#7c2d1215', border: '1px solid #f9731644',
-                        borderRadius: radius.lg, padding: `${space[3]} ${space[5]}`,
-                        fontSize: font.size.sm, color: '#fb923c',
-                        textAlign: 'center', fontWeight: font.weight.bold,
-                    }}>
-                        ⚡{' '}
+                    <div className="flex items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-5 py-3 text-center text-sm font-bold text-orange-600">
+                        <Zap className="size-4 shrink-0" />
                         {emergencyCount > 0 && `${emergencyCount} ward${emergencyCount !== 1 ? 's' : ''} in emergency`}
                         {emergencyCount > 0 && criticalCount > 0 && ' · '}
-                        {criticalCount > 0  && `${criticalCount} ward${criticalCount !== 1 ? 's' : ''} critical`}
+                        {criticalCount > 0 && `${criticalCount} ward${criticalCount !== 1 ? 's' : ''} critical`}
                     </div>
                 )}
 
                 {/* PulseGrid — Live Map */}
-                <section style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
+                <section className="flex flex-col gap-5">
                     <div>
-                        <h2 style={{ fontSize: '1.15rem', fontWeight: font.weight.bold, color: color.textPrimary, margin: `0 0 ${space[1]} 0` }}>
-                            PulseGrid — Live Stress Map
-                        </h2>
-                        <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
-                            Velocity, not volume — a ward where complaints are accelerating ranks above one with more complaints filed slowly.
+                        <h2 className="mb-1 text-lg font-bold text-slate-900 dark:text-white">PulseGrid — Live Stress Map</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Velocity, not volume — a ward where complaints are accelerating ranks above one with more complaints
+                            filed slowly.
                         </p>
                     </div>
 
-                    {loading
-                        ? <SkeletonGrid count={1} height="480px" minCol="100%" />
-                        : (
-                            <NerveMapView
-                                wards={pulseWards}
-                                height="480px"
-                            />
-                        )
-                    }
+                    {loading ? <SkeletonGrid count={1} height="480px" minCol="100%" /> : <NerveMapView wards={pulseWards} height="480px" />}
                 </section>
 
                 {/* PulseGrid tile cards — quick scan below the map */}
                 {!loading && pulseWards.length > 0 && (
-                    <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
-                        <h2 style={{ fontSize: '1rem', fontWeight: font.weight.bold, color: color.textPrimary, margin: 0 }}>
-                            Ward Breakdown
-                        </h2>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: space[3] }}>
-                            {pulseWards.map((w) => <StressTile key={w._id ?? w.wardNumber} ward={w} />)}
+                    <section className="flex flex-col gap-4">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">Ward Breakdown</h2>
+                        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+                            {pulseWards.map((w) => (
+                                <StressTile key={w._id ?? w.wardNumber} ward={w} />
+                            ))}
                         </div>
                         <StressBandLegend />
                     </section>
                 )}
 
                 {/* Leaderboard */}
-                <section style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}>
+                <section className="flex flex-col gap-5">
                     <div>
-                        <h2 style={{ fontSize: '1.15rem', fontWeight: font.weight.bold, color: color.textPrimary, margin: `0 0 ${space[1]} 0` }}>
-                            Ward Accountability Leaderboard
+                        <h2 className="mb-1 flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
+                            <Trophy className="size-5 text-amber-500" /> Ward Accountability Leaderboard
                         </h2>
-                        <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
-                            Ranked by health score — resolution rate, speed, and backlog.
-                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Ranked by health score — resolution rate, speed, and backlog.</p>
                     </div>
 
-                    {loading
-                        ? <SkeletonRows count={4} height="72px" />
-                        : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
-                                {leaderboard.map((w) => <LeaderRow key={w._id ?? w.wardNumber} ward={w} />)}
-                            </div>
-                        )
-                    }
+                    {loading ? (
+                        <SkeletonRows count={4} height="72px" />
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {leaderboard.map((w) => (
+                                <LeaderRow key={w._id ?? w.wardNumber} ward={w} />
+                            ))}
+                        </div>
+                    )}
                 </section>
             </main>
         </PageShell>

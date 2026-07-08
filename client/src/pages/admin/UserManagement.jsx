@@ -10,107 +10,63 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
-import {
-    listUsersApi,
-    setUserActiveApi,
-    changeUserRoleApi,
-    parseUserError,
-} from '../../api/user.api.js';
+import { BarChart3, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { useCurrentUser } from '../../hooks/useAuthGuards.js';
+import { listUsersApi, setUserActiveApi, changeUserRoleApi, parseUserError } from '../../api/user.api.js';
 import { generateForecastsApi, expireAndScoreForecastsApi } from '../../api/forecast.api.js';
 import {
     PageShell,
     NavBar,
-    NavBrand,
-    NavLink,
+    NavPageTitle,
     NavUser,
-    NavLogout,
     ErrorBanner,
     SuccessMsg,
     SkeletonRows,
     Input,
-    BtnPrimary,
     ToolBtn,
 } from '../../components/admin/AdminShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
-import { color, font, space, radius, transition } from '../../theme/index.js';
+import { cn } from '../../lib/utils';
 
 const ROLES = ['citizen', 'officer', 'worker', 'admin'];
 
-const ROLE_COLOR = {
-    citizen: color.roleCitizen ?? '#22d3ee',
-    officer: '#818cf8',
-    worker: '#34d399',
-    admin: '#f59e0b',
+const ROLE_TONE = {
+    citizen: 'text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/10',
+    officer: 'text-violet-600 dark:text-violet-300 bg-violet-50 dark:bg-violet-500/10',
+    worker: 'text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10',
+    admin: 'text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10',
 };
 
 // ── User row ──────────────────────────────────────────────────────────────────
 function UserRow({ user, onToggleActive, onRoleChange, busy }) {
     const [roleEdit, setRoleEdit] = useState(false);
+    const tone = ROLE_TONE[user.role] ?? ROLE_TONE.citizen;
 
     return (
         <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: space[4],
-                flexWrap: 'wrap',
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.xl,
-                padding: `${space[3]} ${space[5]}`,
-                opacity: !user.isActive ? 0.55 : 1,
-                transition: transition.fast,
-            }}
+            className={cn(
+                'flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3.5 transition-opacity',
+                !user.isActive && 'opacity-55'
+            )}
         >
             {/* Avatar stub */}
-            <div
-                style={{
-                    width: '2rem',
-                    height: '2rem',
-                    borderRadius: radius.full,
-                    background: ROLE_COLOR[user.role] + '22',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    fontSize: font.size.xs,
-                    fontWeight: font.weight.bold,
-                    color: ROLE_COLOR[user.role],
-                }}
-            >
+            <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold', tone)}>
                 {user.name?.charAt(0).toUpperCase()}
             </div>
 
             {/* Name + email */}
-            <div
-                style={{
-                    flex: 1,
-                    minWidth: '160px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.1rem',
-                }}
-            >
-                <span
-                    style={{
-                        fontSize: font.size.base,
-                        fontWeight: font.weight.semibold,
-                        color: color.textPrimary,
-                    }}
-                >
-                    {user.name}
-                </span>
-                <span style={{ fontSize: font.size.xs, color: color.textMuted }}>{user.email}</span>
+            <div className="flex min-w-[160px] flex-1 flex-col gap-0.5">
+                <span className="text-sm font-semibold text-slate-900 dark:text-white">{user.name}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">{user.email}</span>
                 {user.assignedWard && (
-                    <span style={{ fontSize: '0.68rem', color: color.textMuted }}>
+                    <span className="text-[0.68rem] text-slate-400 dark:text-slate-500">
                         Ward {user.assignedWard.wardNumber}: {user.assignedWard.name}
                     </span>
                 )}
             </div>
 
             {/* Role — inline edit */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
+            <div className="flex items-center gap-2">
                 {roleEdit ? (
                     <select
                         defaultValue={user.role}
@@ -120,15 +76,7 @@ function UserRow({ user, onToggleActive, onRoleChange, busy }) {
                             onRoleChange(user._id, e.target.value);
                             setRoleEdit(false);
                         }}
-                        style={{
-                            background: color.bgPage,
-                            border: `1px solid ${color.accent}`,
-                            borderRadius: radius.sm,
-                            color: color.textPrimary,
-                            fontSize: font.size.xs,
-                            padding: '0.25rem 0.5rem',
-                            cursor: 'pointer',
-                        }}
+                        className="cursor-pointer rounded-md border border-primary-500 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-white outline-none"
                     >
                         {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -137,21 +85,13 @@ function UserRow({ user, onToggleActive, onRoleChange, busy }) {
                         ))}
                     </select>
                 ) : (
-                    <span
+                    <button
                         onClick={() => setRoleEdit(true)}
                         title="Click to change role"
-                        style={{
-                            fontSize: font.size.xs,
-                            fontWeight: font.weight.bold,
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: radius.full,
-                            color: ROLE_COLOR[user.role],
-                            background: ROLE_COLOR[user.role] + '1a',
-                            cursor: 'pointer',
-                        }}
+                        className={cn('rounded-full px-2.5 py-1 text-xs font-bold capitalize transition-opacity hover:opacity-80', tone)}
                     >
                         {user.role}
-                    </span>
+                    </button>
                 )}
             </div>
 
@@ -159,17 +99,13 @@ function UserRow({ user, onToggleActive, onRoleChange, busy }) {
             <button
                 onClick={() => onToggleActive(user._id, !user.isActive)}
                 disabled={busy === user._id}
-                style={{
-                    background: user.isActive ? '#22c55e18' : color.dangerSurface,
-                    border: `1px solid ${user.isActive ? '#22c55e44' : color.dangerBorder}`,
-                    borderRadius: radius.sm,
-                    cursor: 'pointer',
-                    color: user.isActive ? color.success : color.danger,
-                    fontSize: font.size.xs,
-                    fontWeight: font.weight.semibold,
-                    padding: '0.3rem 0.65rem',
-                    opacity: busy === user._id ? 0.6 : 1,
-                }}
+                className={cn(
+                    'rounded-md border px-2.5 py-1 text-xs font-semibold transition-opacity',
+                    user.isActive
+                        ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                        : 'border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300',
+                    busy === user._id && 'opacity-60'
+                )}
             >
                 {user.isActive ? 'Active' : 'Inactive'}
             </button>
@@ -180,7 +116,6 @@ function UserRow({ user, onToggleActive, onRoleChange, busy }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function UserManagement() {
     const user = useCurrentUser();
-    const logout = useLogout();
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -193,6 +128,7 @@ export default function UserManagement() {
     const [busy, setBusy] = useState(null);
     const [actionMsg, setActionMsg] = useState(null);
     const [forecastMsg, setForecastMsg] = useState(null);
+    const [forecastOk, setForecastOk] = useState(true);
     const [forecasting, setForecasting] = useState(false);
 
     const fetchUsers = useCallback(
@@ -218,6 +154,7 @@ export default function UserManagement() {
 
     useEffect(() => {
         fetchUsers(page, search, roleFilter);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, roleFilter]);
 
     // Debounced search
@@ -227,6 +164,7 @@ export default function UserManagement() {
             fetchUsers(1, search, roleFilter);
         }, 400);
         return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
     async function handleToggleActive(id, isActive) {
@@ -262,144 +200,60 @@ export default function UserManagement() {
         setForecastMsg(null);
         try {
             const result = await fn();
-            setForecastMsg(`✓ ${label}: ${JSON.stringify(result).slice(0, 80)}`);
+            setForecastOk(true);
+            setForecastMsg(`${label}: ${JSON.stringify(result).slice(0, 80)}`);
         } catch {
-            setForecastMsg(`✗ ${label} failed.`);
+            setForecastOk(false);
+            setForecastMsg(`${label} failed.`);
         } finally {
             setForecasting(false);
         }
     }
 
     return (
-        <PageShell>
+        <PageShell sidebar>
             <NavBar
-                left={<NavBrand sub="User Management" />}
+                withToggle
+                left={<NavPageTitle>User Management</NavPageTitle>}
                 right={
                     <>
-                        <NavLink to="/war-room">War Room</NavLink>
-                        <NavLink to="/admin/wards">Wards</NavLink>
                         <NotificationBell />
                         <NavUser name={user?.name} />
-                        <NavLogout onClick={logout} />
                     </>
                 }
             />
 
-            <main
-                style={{
-                    maxWidth: '860px',
-                    margin: '0 auto',
-                    padding: `${space[6]} ${space[6]} ${space[16]}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[6],
-                }}
-            >
+            <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 pb-16 sm:px-6 xl:px-10">
                 {/* Header */}
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        flexWrap: 'wrap',
-                        gap: space[4],
-                    }}
-                >
-                    <div>
-                        <h1
-                            style={{
-                                fontSize: '1.4rem',
-                                fontWeight: font.weight.extrabold,
-                                color: color.textPrimary,
-                                margin: `0 0 ${space[1]} 0`,
-                            }}
-                        >
-                            Users
-                        </h1>
-                        <p style={{ fontSize: font.size.sm, color: color.textMuted, margin: 0 }}>
-                            {loading
-                                ? 'Loading…'
-                                : `${total} registered user${total !== 1 ? 's' : ''}`}
-                        </p>
-                    </div>
+                <div>
+                    <h1 className="mb-1 text-xl font-extrabold text-slate-900 dark:text-white sm:text-2xl">Users</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{loading ? 'Loading…' : `${total} registered user${total !== 1 ? 's' : ''}`}</p>
                 </div>
 
                 {/* SilentSignal admin triggers */}
-                <div
-                    style={{
-                        background: color.bgSurface,
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.xl,
-                        padding: `${space[4]} ${space[5]}`,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: space[3],
-                    }}
-                >
-                    <span
-                        style={{
-                            fontSize: font.size.sm,
-                            fontWeight: font.weight.semibold,
-                            color: color.textSecondary,
-                        }}
-                    >
-                        SilentSignal — Manual Triggers
-                    </span>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: space[3],
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                        }}
-                    >
-                        <ToolBtn
-                            onClick={() =>
-                                handleForecastAction(generateForecastsApi, 'Generate Forecasts')
-                            }
-                            disabled={forecasting}
-                        >
-                            🔮 Generate Forecasts
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">SilentSignal — Manual Triggers</span>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <ToolBtn onClick={() => handleForecastAction(generateForecastsApi, 'Generate Forecasts')} disabled={forecasting}>
+                            <span className="flex items-center gap-1.5">
+                                <Sparkles className="size-3.5" /> Generate Forecasts
+                            </span>
                         </ToolBtn>
-                        <ToolBtn
-                            onClick={() =>
-                                handleForecastAction(expireAndScoreForecastsApi, 'Expire & Score')
-                            }
-                            disabled={forecasting}
-                        >
-                            📊 Expire & Score
+                        <ToolBtn onClick={() => handleForecastAction(expireAndScoreForecastsApi, 'Expire & Score')} disabled={forecasting}>
+                            <span className="flex items-center gap-1.5">
+                                <BarChart3 className="size-3.5" /> Expire & Score
+                            </span>
                         </ToolBtn>
                         {forecastMsg && (
-                            <span
-                                style={{
-                                    fontSize: font.size.xs,
-                                    color: forecastMsg.startsWith('✓')
-                                        ? color.success
-                                        : color.danger,
-                                }}
-                            >
-                                {forecastMsg}
-                            </span>
+                            <span className={cn('text-xs', forecastOk ? 'text-emerald-600' : 'text-rose-600')}>{forecastMsg}</span>
                         )}
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: space[3],
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                    }}
-                >
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search name or email…"
-                        style={{ maxWidth: '260px' }}
-                    />
-                    <div style={{ display: 'flex', gap: space[2] }}>
+                <div className="flex flex-wrap items-center gap-3">
+                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or email…" className="max-w-[260px]" />
+                    <div className="flex flex-wrap gap-2">
                         {['', ...ROLES].map((r) => (
                             <button
                                 key={r}
@@ -407,16 +261,10 @@ export default function UserManagement() {
                                     setRoleFilter(r);
                                     setPage(1);
                                 }}
-                                style={{
-                                    border: `1px solid ${color.borderDefault}`,
-                                    borderRadius: radius.full,
-                                    fontSize: font.size.xs,
-                                    padding: '0.3rem 0.7rem',
-                                    cursor: 'pointer',
-                                    background: roleFilter === r ? color.bgElevated : 'transparent',
-                                    color: roleFilter === r ? color.textPrimary : color.textMuted,
-                                    transition: transition.fast,
-                                }}
+                                className={cn(
+                                    'rounded-full border px-3 py-1.5 text-xs capitalize transition-colors',
+                                    roleFilter === r ? 'border-slate-300 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-surface-50 dark:hover:bg-slate-800'
+                                )}
                             >
                                 {r || 'All'}
                             </button>
@@ -424,7 +272,7 @@ export default function UserManagement() {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: space[3], alignItems: 'center' }}>
+                <div className="flex items-center gap-3">
                     <ErrorBanner message={error} />
                     {actionMsg && <SuccessMsg message={actionMsg} />}
                 </div>
@@ -432,76 +280,35 @@ export default function UserManagement() {
                 {/* List */}
                 {loading && <SkeletonRows count={5} height="68px" />}
 
-                {!loading && users.length === 0 && (
-                    <p
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textMuted,
-                            textAlign: 'center',
-                            padding: space[8],
-                        }}
-                    >
-                        No users match the current filter.
-                    </p>
-                )}
+                {!loading && users.length === 0 && <p className="p-8 text-center text-sm text-slate-400 dark:text-slate-500">No users match the current filter.</p>}
 
                 {!loading && users.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                    <div className="flex flex-col gap-2">
                         {users.map((u) => (
-                            <UserRow
-                                key={u._id}
-                                user={u}
-                                onToggleActive={handleToggleActive}
-                                onRoleChange={handleRoleChange}
-                                busy={busy}
-                            />
+                            <UserRow key={u._id} user={u} onToggleActive={handleToggleActive} onRoleChange={handleRoleChange} busy={busy} />
                         ))}
                     </div>
                 )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: space[5] }}>
+                    <div className="flex items-center justify-center gap-5">
                         <button
                             onClick={() => setPage((p) => p - 1)}
                             disabled={page <= 1}
-                            style={{
-                                background: color.bgSurface,
-                                border: `1px solid ${color.borderDefault}`,
-                                borderRadius: radius.md,
-                                color: color.textSecondary,
-                                fontSize: font.size.sm,
-                                padding: `0.4rem ${space[4]}`,
-                                cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                                opacity: page <= 1 ? 0.4 : 1,
-                            }}
+                            className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-1.5 text-sm text-slate-600 dark:text-slate-300 transition-colors disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:bg-surface-50 dark:hover:bg-slate-800"
                         >
-                            ← Prev
+                            <ChevronLeft className="size-4" /> Prev
                         </button>
-                        <span
-                            style={{
-                                fontSize: font.size.sm,
-                                color: color.textMuted,
-                                alignSelf: 'center',
-                            }}
-                        >
+                        <span className="text-sm text-slate-400 dark:text-slate-500">
                             {page} / {totalPages}
                         </span>
                         <button
                             onClick={() => setPage((p) => p + 1)}
                             disabled={page >= totalPages}
-                            style={{
-                                background: color.bgSurface,
-                                border: `1px solid ${color.borderDefault}`,
-                                borderRadius: radius.md,
-                                color: color.textSecondary,
-                                fontSize: font.size.sm,
-                                padding: `0.4rem ${space[4]}`,
-                                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
-                                opacity: page >= totalPages ? 0.4 : 1,
-                            }}
+                            className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-1.5 text-sm text-slate-600 dark:text-slate-300 transition-colors disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:bg-surface-50 dark:hover:bg-slate-800"
                         >
-                            Next →
+                            Next <ChevronRight className="size-4" />
                         </button>
                     </div>
                 )}

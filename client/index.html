@@ -41,10 +41,29 @@
             #root {
                 margin: 0;
                 padding: 0;
-                background: #09111f;
                 min-height: 100vh;
             }
+            html:not(.dark) {
+                background: #f8fafc;
+            }
+            html.dark {
+                background: #09111f;
+            }
         </style>
+
+        <!-- Apply the saved theme before first paint — avoids a light/dark flash -->
+        <script>
+            (function () {
+                try {
+                    var stored = localStorage.getItem('veyu:theme');
+                    var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (dark) document.documentElement.classList.add('dark');
+                    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+                } catch (e) {
+                    /* localStorage unavailable — default to light */
+                }
+            })();
+        </script>
     </head>
     <body>
         <div id="root"></div>

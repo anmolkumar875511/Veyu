@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import AppRouter from './AppRouter.jsx';
+import { ThemeProvider } from './context/ThemeContext.jsx';
+import { SidebarProvider } from './components/layout/SidebarContext.jsx';
 import './index.css';
 
 const container = document.getElementById('root');
@@ -14,6 +16,10 @@ if (!container) {
 
 createRoot(container).render(
     <StrictMode>
-        <AppRouter />
+        <ThemeProvider>
+            <SidebarProvider>
+                <AppRouter />
+            </SidebarProvider>
+        </ThemeProvider>
     </StrictMode>
 );

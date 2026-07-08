@@ -1,29 +1,57 @@
 // src/components/officer/OfficerShell.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared primitives for all officer pages (WarRoom, ComplaintDetail,
-// Reports, Forecasts). All tokens from theme/index.js.
+// Reports, Forecasts). Styled with Tailwind utility classes.
+// Public API (component names + props) preserved so page files stay stable.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Link } from 'react-router-dom';
-import { color, font, radius, space, shadow, transition, mk } from '../../theme/index.js';
-import {
-    COMPLAINT_STATUS_LABELS,
-    STATUS_META,
-    SEVERITY_COLOR,
-} from '../../constants/complaint.constants.js';
+import { Link, NavLink as RouterNavLink } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Loader2, Radio, Zap, ClipboardList, UserCircle, MapPinned, Users, UserPlus } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { getStatusTheme } from '../../lib/roleTheme';
+import { STATUS_META } from '../../constants/complaint.constants.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { ThemeToggle } from '../ui/ThemeToggle.jsx';
+import { Sidebar } from '../layout/Sidebar.jsx';
+import { SidebarToggle } from '../layout/SidebarToggle.jsx';
+import { useSidebar } from '../layout/SidebarContext.jsx';
+import { Footer } from '../layout/Footer.jsx';
+
+// These routes (/war-room, /reports, /forecasts) are shared by both the
+// 'officer' and 'admin' roles. Admins additionally get their own management
+// pages, so the shell has to know which role is actually signed in rather
+// than always presenting itself as "Officer".
+const OFFICER_NAV = [
+    { to: '/war-room', label: 'War Room', icon: Radio },
+    { to: '/forecasts', label: 'SilentSignal', icon: Zap },
+    { to: '/reports', label: 'Reports', icon: ClipboardList },
+    { to: '/profile', label: 'Profile', icon: UserCircle },
+];
+
+const ADMIN_EXTRA_NAV = [
+    { to: '/admin/wards', label: 'Wards', icon: MapPinned },
+    { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/staff', label: 'Add staff', icon: UserPlus },
+];
 
 // ── Page shell ────────────────────────────────────────────────────────────────
 export function PageShell({ children }) {
+    const { collapsed } = useSidebar();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+    // Insert admin-only management links after "War Room", before Reports/Profile,
+    // so an admin viewing this shared shell sees their full toolset.
+    const navItems = isAdmin
+        ? [OFFICER_NAV[0], ...ADMIN_EXTRA_NAV, ...OFFICER_NAV.slice(1)]
+        : OFFICER_NAV;
     return (
-        <div
-            style={{
-                minHeight: '100vh',
-                background: color.bgPage,
-                fontFamily: font.sans,
-                color: color.textPrimary,
-            }}
-        >
-            {children}
+        <div className="min-h-screen bg-surface-50 dark:bg-slate-950 text-slate-900 dark:text-white">
+            <Sidebar items={navItems} accent={isAdmin ? 'amber' : 'violet'} roleLabel={isAdmin ? 'Admin' : 'Officer'} />
+            <div className={cn('flex min-h-screen flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-[76px]' : 'lg:pl-64')}>
+                {children}
+                <Footer />
+            </div>
         </div>
     );
 }
@@ -31,20 +59,7 @@ export function PageShell({ children }) {
 // ── Full-screen loading / error state ─────────────────────────────────────────
 export function FullscreenState({ children }) {
     return (
-        <div
-            style={{
-                minHeight: '100vh',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: space[4],
-                background: color.bgPage,
-                color: color.textMuted,
-                fontFamily: font.sans,
-                fontSize: font.size.base,
-            }}
-        >
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-50 dark:bg-slate-950 text-base text-slate-400 dark:text-slate-500">
             {children}
         </div>
     );
@@ -53,89 +68,61 @@ export function FullscreenState({ children }) {
 // ── Nav bar ───────────────────────────────────────────────────────────────────
 export function NavBar({ left, right }) {
     return (
-        <header
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: `0 ${space[6]}`,
-                height: '56px',
-                background: color.bgPage,
-                borderBottom: `1px solid ${color.borderFaint}`,
-                position: 'sticky',
-                top: 0,
-                zIndex: 100,
-            }}
-        >
-            <div>{left}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: space[5] }}>{right}</div>
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/80 backdrop-blur-md px-4 sm:px-6">
+            <div className="flex items-center gap-2">
+                <SidebarToggle />
+                {left}
+            </div>
+            <div className="flex items-center gap-3 sm:gap-5">
+                {right}
+                <ThemeToggle />
+            </div>
         </header>
     );
 }
 
-// ── Brand mark with optional sub-label ───────────────────────────────────────
-export function NavBrand({ name = 'Veyu', sub }) {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
-            <span
-                style={{
-                    width: '0.5rem',
-                    height: '0.5rem',
-                    borderRadius: radius.full,
-                    background: color.accent,
-                    boxShadow: shadow.accentGlowSm,
-                    display: 'inline-block',
-                    flexShrink: 0,
-                }}
-            />
-            <span
-                style={{
-                    fontSize: font.size.sm,
-                    fontWeight: font.weight.bold,
-                    color: color.textPrimary,
-                    letterSpacing: font.tracking.widest,
-                    textTransform: 'uppercase',
-                }}
-            >
-                {name}
-            </span>
-            {sub && (
-                <>
-                    <span style={{ color: color.borderDefault, fontSize: font.size.sm }}>·</span>
-                    <span
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textMuted,
-                            fontWeight: font.weight.medium,
-                        }}
-                    >
-                        {sub}
-                    </span>
-                </>
-            )}
-        </div>
-    );
+// ── Page title (nav-bar left slot) ────────────────────────────────────────────
+// The brand mark already lives at the top of the sidebar, so the nav bar only
+// needs the current section's name — showing the logo again here duplicated
+// it right below itself.
+export function NavBrand({ name, sub }) {
+    return <span className="text-sm font-semibold text-slate-900 dark:text-white">{sub ?? name ?? 'War Room'}</span>;
 }
 
 // ── Nav link ──────────────────────────────────────────────────────────────────
 export function NavLink({ to, children }) {
     return (
-        <Link
+        <RouterNavLink
             to={to}
-            style={{ fontSize: font.size.sm, color: color.textSecondary, textDecoration: 'none' }}
+            className={({ isActive }) =>
+                cn(
+                    'relative text-sm font-medium transition-colors',
+                    isActive
+                        ? 'text-slate-900 dark:text-white'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                )
+            }
         >
-            {children}
-        </Link>
+            {({ isActive }) => (
+                <span className="relative inline-flex flex-col items-center">
+                    {children}
+                    {isActive && (
+                        <motion.span
+                            layoutId="officer-nav-underline"
+                            className="absolute -bottom-2 h-0.5 w-full rounded-full bg-violet-600 dark:bg-violet-400"
+                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        />
+                    )}
+                </span>
+            )}
+        </RouterNavLink>
     );
 }
 
-// ── Back link (← label) ───────────────────────────────────────────────────────
+// ── Back link ─────────────────────────────────────────────────────────────────
 export function BackLink({ to, children }) {
     return (
-        <Link
-            to={to}
-            style={{ fontSize: font.size.sm, color: color.textSecondary, textDecoration: 'none' }}
-        >
+        <Link to={to} className="text-sm text-slate-500 dark:text-slate-400 transition-colors hover:text-slate-800 dark:hover:text-slate-200">
             {children}
         </Link>
     );
@@ -143,7 +130,7 @@ export function BackLink({ to, children }) {
 
 // ── Nav user name ─────────────────────────────────────────────────────────────
 export function NavUser({ name }) {
-    return <span style={{ fontSize: font.size.xs, color: color.textMuted }}>{name}</span>;
+    return <span className="hidden text-xs text-slate-400 dark:text-slate-500 sm:inline">{name}</span>;
 }
 
 // ── Nav sign-out button ───────────────────────────────────────────────────────
@@ -151,15 +138,7 @@ export function NavLogout({ onClick }) {
     return (
         <button
             onClick={onClick}
-            style={{
-                background: 'none',
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.sm,
-                color: color.textSecondary,
-                fontSize: font.size.xs,
-                padding: '0.3rem 0.7rem',
-                cursor: 'pointer',
-            }}
+            className="rounded-md border border-slate-200 dark:border-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
         >
             Sign out
         </button>
@@ -168,93 +147,46 @@ export function NavLogout({ onClick }) {
 
 // ── Nav title (center label) ──────────────────────────────────────────────────
 export function NavTitle({ children }) {
-    return (
-        <span
-            style={{
-                fontSize: font.size.base,
-                fontWeight: font.weight.semibold,
-                color: color.textPrimary,
-            }}
-        >
-            {children}
-        </span>
-    );
+    return <span className="text-sm font-semibold text-slate-900 dark:text-white">{children}</span>;
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 export function StatusBadge({ status }) {
-    const m = STATUS_META[status] ?? STATUS_META.submitted;
+    const theme = getStatusTheme(status);
+    const label = STATUS_META[status]?.label ?? status;
     return (
         <span
-            style={{
-                fontSize: font.size.xs,
-                fontWeight: font.weight.bold,
-                padding: '0.2rem 0.6rem',
-                borderRadius: radius.full,
-                color: m.color,
-                background: m.bg,
-                whiteSpace: 'nowrap',
-            }}
+            className={cn(
+                'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold',
+                theme.text,
+                theme.bg,
+                theme.border
+            )}
         >
-            {m.label}
+            <span className={cn('size-1.5 rounded-full', theme.dot)} />
+            {label}
         </span>
     );
 }
 
 // ── Severity bar + label ──────────────────────────────────────────────────────
 export function SeverityBar({ severity }) {
-    if (!severity)
-        return <span style={{ color: color.borderDefault, fontSize: font.size.sm }}>—</span>;
-    const c = SEVERITY_COLOR(severity);
+    if (!severity) return <span className="text-sm text-slate-300 dark:text-slate-600">—</span>;
+    const tone = severity >= 7 ? 'bg-rose-500' : severity >= 4 ? 'bg-amber-500' : 'bg-emerald-500';
+    const textTone = severity >= 7 ? 'text-rose-600' : severity >= 4 ? 'text-amber-600' : 'text-emerald-600';
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: space[2], minWidth: '90px' }}>
-            <div
-                style={{
-                    flex: 1,
-                    height: '4px',
-                    background: color.borderDefault,
-                    borderRadius: radius.full,
-                    overflow: 'hidden',
-                }}
-            >
-                <div
-                    style={{
-                        width: `${severity * 10}%`,
-                        height: '100%',
-                        background: c,
-                        borderRadius: radius.full,
-                    }}
-                />
+        <div className="flex min-w-[90px] items-center gap-2">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                <div className={cn('h-full rounded-full', tone)} style={{ width: `${severity * 10}%` }} />
             </div>
-            <span
-                style={{
-                    fontSize: '0.72rem',
-                    fontWeight: font.weight.bold,
-                    color: c,
-                    minWidth: '1rem',
-                }}
-            >
-                {severity}
-            </span>
+            <span className={cn('min-w-[1rem] text-xs font-bold', textTone)}>{severity}</span>
         </div>
     );
 }
 
 // ── Section label (CAPS metadata label) ──────────────────────────────────────
 export function SectionLabel({ children }) {
-    return (
-        <span
-            style={{
-                fontSize: '0.68rem',
-                fontWeight: font.weight.bold,
-                color: color.textMuted,
-                letterSpacing: font.tracking.wider,
-                textTransform: 'uppercase',
-            }}
-        >
-            {children}
-        </span>
-    );
+    return <span className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{children}</span>;
 }
 
 // ── Error banner ──────────────────────────────────────────────────────────────
@@ -263,34 +195,13 @@ export function ErrorBanner({ message, onRetry }) {
     return (
         <div
             role="alert"
-            style={{
-                background: color.dangerSurface,
-                border: `1px solid ${color.dangerBorder}`,
-                borderRadius: radius.md,
-                color: '#fca5a5',
-                fontSize: font.size.sm,
-                padding: `${space[3]} ${space[4]}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: space[3],
-            }}
+            className="flex items-center justify-between gap-3 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300"
         >
             <span>{message}</span>
             {onRetry && (
                 <button
                     onClick={onRetry}
-                    style={{
-                        background: 'none',
-                        border: `1px solid ${color.dangerBorder}`,
-                        borderRadius: radius.sm,
-                        color: '#fca5a5',
-                        fontSize: font.size.xs,
-                        padding: '0.2rem 0.6rem',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                    }}
+                    className="shrink-0 whitespace-nowrap rounded-md border border-rose-200 dark:border-rose-900/50 px-2.5 py-1 text-xs text-rose-700 dark:text-rose-300 transition-colors hover:bg-rose-100 dark:hover:bg-rose-500/10"
                 >
                     Retry
                 </button>
@@ -302,17 +213,9 @@ export function ErrorBanner({ message, onRetry }) {
 // ── Skeleton rows ─────────────────────────────────────────────────────────────
 export function SkeletonRows({ count = 5, height = '52px' }) {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+        <div className="flex flex-col gap-2">
             {Array.from({ length: count }, (_, i) => (
-                <div
-                    key={i}
-                    style={{
-                        height,
-                        background: color.bgSurface,
-                        borderRadius: radius.md,
-                        border: `1px solid ${color.borderFaint}`,
-                    }}
-                />
+                <div key={i} style={{ height }} className="animate-pulse rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800" />
             ))}
         </div>
     );
@@ -321,65 +224,25 @@ export function SkeletonRows({ count = 5, height = '52px' }) {
 // ── Skeleton grid ─────────────────────────────────────────────────────────────
 export function SkeletonGrid({ count = 3, height = '220px', minColWidth = '280px' }) {
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}, 1fr))`,
-                gap: space[4],
-            }}
-        >
+        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}, 1fr))` }}>
             {Array.from({ length: count }, (_, i) => (
-                <div
-                    key={i}
-                    style={{
-                        height,
-                        background: color.bgSurface,
-                        borderRadius: radius.xl,
-                        border: `1px solid ${color.borderFaint}`,
-                    }}
-                />
+                <div key={i} style={{ height }} className="animate-pulse rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800" />
             ))}
         </div>
     );
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
-export function EmptyState({ icon, heading, sub }) {
+export function EmptyState({ icon: Icon, heading, sub }) {
     return (
-        <div
-            style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: space[3],
-                padding: `${space[12]} ${space[4]}`,
-                textAlign: 'center',
-            }}
-        >
-            {icon && <span style={{ fontSize: '2.25rem' }}>{icon}</span>}
-            <p
-                style={{
-                    fontSize: font.size.base,
-                    fontWeight: font.weight.semibold,
-                    color: color.textSecondary,
-                    margin: 0,
-                }}
-            >
-                {heading}
-            </p>
-            {sub && (
-                <p
-                    style={{
-                        fontSize: font.size.sm,
-                        color: color.textMuted,
-                        maxWidth: '380px',
-                        lineHeight: 1.6,
-                        margin: 0,
-                    }}
-                >
-                    {sub}
-                </p>
+        <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+            {Icon && (
+                <div className="flex size-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                    <Icon className="size-6 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+                </div>
             )}
+            <p className="text-base font-semibold text-slate-600 dark:text-slate-300">{heading}</p>
+            {sub && <p className="max-w-sm text-sm leading-relaxed text-slate-400 dark:text-slate-500">{sub}</p>}
         </div>
     );
 }
@@ -387,29 +250,17 @@ export function EmptyState({ icon, heading, sub }) {
 // ── Filter tabs (shared by WarRoom and MyComplaints) ──────────────────────────
 export function FilterTabs({ tabs, active, onChange }) {
     return (
-        <div
-            style={{
-                display: 'flex',
-                borderBottom: `1px solid ${color.borderFaint}`,
-                marginBottom: space[5],
-            }}
-        >
+        <div className="mb-5 flex overflow-x-auto border-b border-slate-200 dark:border-slate-800">
             {tabs.map((t) => (
                 <button
                     key={t.value}
                     onClick={() => onChange(t.value)}
-                    style={{
-                        padding: `${space[3]} ${space[3]}`,
-                        fontSize: font.size.xs,
-                        fontWeight: font.weight.medium,
-                        cursor: 'pointer',
-                        border: 'none',
-                        background: 'transparent',
-                        color: active === t.value ? color.textPrimary : color.textMuted,
-                        borderBottom: `2px solid ${active === t.value ? color.accent : 'transparent'}`,
-                        whiteSpace: 'nowrap',
-                        transition: transition.fast,
-                    }}
+                    className={cn(
+                        'whitespace-nowrap border-b-2 px-3 py-3 text-xs font-medium transition-colors',
+                        active === t.value
+                            ? 'border-primary-600 text-slate-900 dark:text-white'
+                            : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                    )}
                 >
                     {t.label}
                 </button>
@@ -422,23 +273,15 @@ export function FilterTabs({ tabs, active, onChange }) {
 export function Pagination({ page, totalPages, onPrev, onNext }) {
     if (totalPages <= 1) return null;
     return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: space[5],
-                marginTop: space[5],
-            }}
-        >
+        <div className="mt-5 flex items-center justify-center gap-5">
             <PageBtn onClick={onPrev} disabled={page <= 1}>
-                ← Prev
+                Prev
             </PageBtn>
-            <span style={{ fontSize: font.size.sm, color: color.textMuted }}>
+            <span className="text-sm text-slate-400 dark:text-slate-500">
                 {page} / {totalPages}
             </span>
             <PageBtn onClick={onNext} disabled={page >= totalPages}>
-                Next →
+                Next
             </PageBtn>
         </div>
     );
@@ -449,17 +292,7 @@ function PageBtn({ onClick, disabled, children }) {
         <button
             onClick={onClick}
             disabled={disabled}
-            style={{
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.md,
-                color: color.textSecondary,
-                fontSize: font.size.sm,
-                padding: `0.4rem 0.875rem`,
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                opacity: disabled ? 0.4 : 1,
-                transition: transition.fast,
-            }}
+            className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-1.5 text-sm text-slate-600 dark:text-slate-300 transition-colors disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:bg-slate-50 dark:hover:bg-slate-800"
         >
             {children}
         </button>
@@ -467,16 +300,11 @@ function PageBtn({ onClick, disabled, children }) {
 }
 
 // ── Surface card ──────────────────────────────────────────────────────────────
-export function Card({ children, style: extra, padding }) {
+export function Card({ children, className, style, padding }) {
     return (
         <div
-            style={{
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.xl,
-                padding: padding ?? space[5],
-                ...extra,
-            }}
+            style={{ padding, ...style }}
+            className={cn('rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-[var(--shadow-card)]', padding && 'p-0', className)}
         >
             {children}
         </div>
@@ -484,43 +312,19 @@ export function Card({ children, style: extra, padding }) {
 }
 
 // ── Meta grid (label + value pairs) ──────────────────────────────────────────
+const META_GRID_COLS = {
+    2: 'grid-cols-2',
+    3: 'grid-cols-2 sm:grid-cols-3',
+    4: 'grid-cols-2 sm:grid-cols-4',
+};
+
 export function MetaGrid({ items, columns = 3 }) {
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${columns}, 1fr)`,
-                gap: space[4],
-                background: color.bgSurface,
-                borderRadius: radius.lg,
-                padding: space[4],
-                border: `1px solid ${color.borderDefault}`,
-            }}
-        >
+        <div className={cn('grid gap-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4', META_GRID_COLS[columns] ?? META_GRID_COLS[3])}>
             {items.map(({ label, value }) => (
-                <div
-                    key={label}
-                    style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}
-                >
-                    <span
-                        style={{
-                            fontSize: '0.65rem',
-                            color: color.textMuted,
-                            letterSpacing: font.tracking.wide,
-                            textTransform: 'uppercase',
-                        }}
-                    >
-                        {label}
-                    </span>
-                    <span
-                        style={{
-                            fontSize: font.size.sm,
-                            color: color.textPrimary,
-                            fontWeight: font.weight.semibold,
-                        }}
-                    >
-                        {value ?? '—'}
-                    </span>
+                <div key={label} className="flex flex-col gap-0.5">
+                    <span className="text-[0.65rem] uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</span>
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{value ?? '—'}</span>
                 </div>
             ))}
         </div>
@@ -535,19 +339,7 @@ export function Textarea({ placeholder, value, onChange, rows = 3 }) {
             onChange={onChange}
             placeholder={placeholder}
             rows={rows}
-            style={{
-                background: color.bgPage,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.md,
-                color: color.textPrimary,
-                fontSize: font.size.sm,
-                padding: `0.6rem 0.75rem`,
-                resize: 'vertical',
-                outline: 'none',
-                fontFamily: font.sans,
-                width: '100%',
-                boxSizing: 'border-box',
-            }}
+            className="w-full resize-y rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-white outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
         />
     );
 }
@@ -557,17 +349,7 @@ export function Select({ value, onChange, children }) {
         <select
             value={value}
             onChange={onChange}
-            style={{
-                background: color.bgPage,
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.md,
-                color: color.textPrimary,
-                fontSize: font.size.sm,
-                padding: `0.6rem 0.75rem`,
-                outline: 'none',
-                width: '100%',
-                cursor: 'pointer',
-            }}
+            className="w-full cursor-pointer rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-white outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
         >
             {children}
         </select>
@@ -580,11 +362,9 @@ export function BtnPrimary({ onClick, disabled, loading, loadingText, children }
         <button
             onClick={onClick}
             disabled={disabled || loading}
-            style={{
-                ...mk.btnPrimary({ disabled: disabled || loading }),
-                fontSize: font.size.sm,
-            }}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-300"
         >
+            {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? (loadingText ?? 'Loading…') : children}
         </button>
     );
@@ -594,17 +374,7 @@ export function BtnDanger({ onClick, children }) {
     return (
         <button
             onClick={onClick}
-            style={{
-                background: 'none',
-                border: `1px solid ${color.dangerBorder}`,
-                borderRadius: radius.md,
-                color: color.danger,
-                fontSize: font.size.sm,
-                fontWeight: font.weight.semibold,
-                padding: '0.6rem',
-                cursor: 'pointer',
-                width: '100%',
-            }}
+            className="w-full rounded-lg border border-rose-200 dark:border-rose-900/50 py-2.5 text-sm font-semibold text-rose-600 dark:text-rose-400 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
         >
             {children}
         </button>
@@ -616,18 +386,7 @@ export function BtnDangerSolid({ onClick, disabled, loading, children }) {
         <button
             onClick={onClick}
             disabled={disabled || loading}
-            style={{
-                background: color.danger,
-                border: 'none',
-                borderRadius: radius.md,
-                color: '#fff',
-                fontSize: font.size.sm,
-                fontWeight: font.weight.bold,
-                padding: '0.6rem',
-                cursor: disabled || loading ? 'not-allowed' : 'pointer',
-                opacity: disabled || loading ? 0.65 : 1,
-                width: '100%',
-            }}
+            className="w-full rounded-lg bg-rose-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-65"
         >
             {loading ? 'Loading…' : children}
         </button>
@@ -638,16 +397,7 @@ export function BtnGhost({ onClick, children }) {
     return (
         <button
             onClick={onClick}
-            style={{
-                background: 'none',
-                border: `1px solid ${color.borderDefault}`,
-                borderRadius: radius.md,
-                color: color.textMuted,
-                fontSize: font.size.sm,
-                padding: '0.5rem',
-                cursor: 'pointer',
-                width: '100%',
-            }}
+            className="w-full rounded-lg border border-slate-200 dark:border-slate-800 py-2 text-sm text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
         >
             {children}
         </button>

@@ -5,19 +5,19 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { getGoogleAuthUrl } from '../../api/auth.api.js';
 import { getRoleHome } from '../../guards/RouteGuards.jsx';
+import { ArrowRight } from 'lucide-react';
 import {
-    AuthPage,
-    AuthCard,
-    BrandMark,
+    AuthSplitShell,
     AuthHeading,
     ErrorBanner,
     FormField,
     TextInput,
     PasswordInput,
     PrimaryButton,
+    GoogleButton,
     Divider,
+    TrustStrip,
 } from '../../components/AuthShell.jsx';
-import { mk, space, font, color, radius } from '../../theme/index.js';
 
 export default function LoginPage() {
     const { login, isLoading, error, clearError, isAuthenticated, user } = useAuth();
@@ -25,7 +25,6 @@ export default function LoginPage() {
     const location = useLocation();
     const [form, setForm] = useState({ email: '', password: '' });
 
-    // ✅ Full dep array
     useEffect(() => {
         if (isAuthenticated && user) {
             const intended = location.state?.from?.pathname;
@@ -44,120 +43,65 @@ export default function LoginPage() {
     }
 
     return (
-        <AuthPage>
-            <AuthCard maxWidth="400px">
-                <BrandMark />
-                <AuthHeading
-                    title="Sign in to your city"
-                    subtitle="Monitor, report, and resolve civic issues."
-                />
+        <AuthSplitShell>
+            <AuthHeading title="Welcome back" subtitle="Sign in to monitor, report, and resolve civic issues." />
 
-                <ErrorBanner message={error} />
+            <ErrorBanner message={error} />
 
-                {/* Google OAuth button */}
-                <button
-                    type="button"
-                    onClick={() => (window.location.href = getGoogleAuthUrl())}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: space[3],
-                        width: '100%',
-                        background: color.bgSurface,
-                        border: `1px solid ${color.borderDefault}`,
-                        borderRadius: radius.md,
-                        color: color.textPrimary,
-                        fontSize: font.size.base,
-                        fontWeight: font.weight.semibold,
-                        padding: '0.7rem',
-                        cursor: 'pointer',
-                        fontFamily: font.sans,
-                    }}
+            <GoogleButton onClick={() => (window.location.href = getGoogleAuthUrl())}>
+                Continue with Google
+            </GoogleButton>
+
+            <Divider label="or sign in with email" />
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+                <FormField label="Email address" htmlFor="email">
+                    <TextInput
+                        id="email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={form.email}
+                        onChange={handleChange}
+                        placeholder="you@example.com"
+                    />
+                </FormField>
+
+                <FormField label="Password" htmlFor="password">
+                    <PasswordInput
+                        id="password"
+                        name="password"
+                        autoComplete="current-password"
+                        required
+                        value={form.password}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                    />
+                </FormField>
+
+                <PrimaryButton loading={isLoading} loadingText="Signing in…">
+                    Sign in
+                </PrimaryButton>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                New to Veyu?{' '}
+                <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700">
+                    Create an account
+                </Link>
+            </p>
+
+            <div className="mt-3 flex items-center justify-center">
+                <Link
+                    to="/map"
+                    className="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                 >
-                    <GoogleIcon />
-                    Continue with Google
-                </button>
+                    View public city map <ArrowRight className="size-3.5" />
+                </Link>
+            </div>
 
-                <Divider label="or sign in with email" />
-
-                <form
-                    onSubmit={handleSubmit}
-                    style={{ display: 'flex', flexDirection: 'column', gap: space[5] }}
-                    noValidate
-                >
-                    <FormField label="Email address" htmlFor="email">
-                        <TextInput
-                            id="email"
-                            name="email"
-                            type="email"
-                            autoComplete="email"
-                            required
-                            value={form.email}
-                            onChange={handleChange}
-                            placeholder="you@example.com"
-                        />
-                    </FormField>
-
-                    <FormField label="Password" htmlFor="password">
-                        <PasswordInput
-                            id="password"
-                            name="password"
-                            autoComplete="current-password"
-                            required
-                            value={form.password}
-                            onChange={handleChange}
-                            placeholder="••••••••"
-                        />
-                    </FormField>
-
-                    <PrimaryButton loading={isLoading} loadingText="Signing in…">
-                        Sign in
-                    </PrimaryButton>
-                </form>
-
-                <p style={mk.footerText()}>
-                    New to Veyu?{' '}
-                    <Link to="/register" style={mk.link()}>
-                        Create an account
-                    </Link>
-                </p>
-
-                <p style={{ fontSize: font.size.xs, textAlign: 'center', marginTop: space[3] }}>
-                    <Link to="/map" style={mk.linkMuted()}>
-                        View public city map →
-                    </Link>
-                </p>
-            </AuthCard>
-        </AuthPage>
-    );
-}
-
-function GoogleIcon() {
-    return (
-        <svg
-            width="18"
-            height="18"
-            viewBox="0 0 18 18"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path
-                d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.12 17.64 11.84 17.64 9.2z"
-                fill="#4285F4"
-            />
-            <path
-                d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
-                fill="#34A853"
-            />
-            <path
-                d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
-                fill="#FBBC05"
-            />
-            <path
-                d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-                fill="#EA4335"
-            />
-        </svg>
+            <TrustStrip />
+        </AuthSplitShell>
     );
 }

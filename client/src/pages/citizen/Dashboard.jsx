@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
+import { motion } from 'framer-motion';
+import { Camera, ClipboardList, Map, MapPin, Plus, TrendingUp, ChevronRight } from 'lucide-react';
+import { useCurrentUser } from '../../hooks/useAuthGuards.js';
 import { usePolling } from '../../hooks/usePolling.js';
 import { getMyComplaintsApi, getCityStatsApi } from '../../api/complaints.api.js';
 import {
     PageShell,
     NavBar,
     NavBrand,
-    NavLink,
-    NavButton,
     StatusBadge,
     SeverityPip,
     EmptyState,
@@ -20,8 +20,8 @@ import {
     AccentLink,
 } from '../../components/citizen/CitizenShell.jsx';
 import { NotificationBell } from '../../components/shared/NotificationBell.jsx';
-import { color, font, space, radius, transition } from '../../theme/index.js';
-import { CATEGORY_ICONS } from '../../constants/complaint.constants.js';
+import { cn } from '../../lib/utils';
+import { getCategoryIcon } from '../../constants/categoryIcons.js';
 
 function getGreeting() {
     const h = new Date().getHours();
@@ -43,53 +43,26 @@ function formatTimeAgo(dateStr) {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-function StatCard({ label, value, sub, accentColor, loading }) {
+const ACCENTS = {
+    amber: { border: 'border-t-amber-500', text: 'text-amber-600' },
+    emerald: { border: 'border-t-emerald-500', text: 'text-emerald-600' },
+    primary: { border: 'border-t-primary-500', text: 'text-primary-600' },
+    violet: { border: 'border-t-violet-500', text: 'text-violet-600' },
+};
+
+function StatCard({ label, value, sub, accent = 'primary', loading }) {
+    const tone = ACCENTS[accent] ?? ACCENTS.primary;
     return (
-        <div
-            style={{
-                background: color.bgSurface,
-                border: `1px solid ${color.borderDefault}`,
-                borderTop: `3px solid ${accentColor}`,
-                borderRadius: radius.xl,
-                padding: `${space[5]} ${space[4]}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.3rem',
-            }}
-        >
+        <div className={cn('flex flex-col gap-1 rounded-xl border border-t-[3px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5', tone.border)}>
             {loading ? (
-                <div
-                    style={{
-                        height: '3.5rem',
-                        background: color.borderDefault,
-                        borderRadius: radius.sm,
-                    }}
-                />
+                <div className="h-14 animate-pulse rounded-md bg-slate-100 dark:bg-slate-800" />
             ) : (
                 <>
-                    <span
-                        style={{
-                            fontSize: '1.75rem',
-                            fontWeight: font.weight.extrabold,
-                            color: accentColor,
-                            lineHeight: 1,
-                            letterSpacing: '-0.03em',
-                        }}
-                    >
+                    <span className={cn('text-[1.75rem] font-extrabold leading-none tracking-tight', tone.text)}>
                         {value ?? '—'}
                     </span>
-                    <span
-                        style={{
-                            fontSize: font.size.xs,
-                            color: color.textSecondary,
-                            fontWeight: font.weight.medium,
-                        }}
-                    >
-                        {label}
-                    </span>
-                    {sub && (
-                        <span style={{ fontSize: '0.68rem', color: color.textMuted }}>{sub}</span>
-                    )}
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+                    {sub && <span className="text-[0.68rem] text-slate-400 dark:text-slate-500">{sub}</span>}
                 </>
             )}
         </div>
@@ -98,90 +71,42 @@ function StatCard({ label, value, sub, accentColor, loading }) {
 
 function ComplaintCard({ complaint }) {
     const navigate = useNavigate();
-    const icon = CATEGORY_ICONS[complaint.category] ?? '📋';
+    const Icon = getCategoryIcon(complaint.category);
     return (
         <div
             onClick={() => navigate('/my-reports')}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && navigate('/my-reports')}
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: space[4],
-                background: color.bgSurface,
-                border: `1px solid ${color.borderFaint}`,
-                borderRadius: radius.xl,
-                padding: `${space[4]} ${space[5]}`,
-                cursor: 'pointer',
-                transition: transition.fast,
-            }}
+            className="flex cursor-pointer items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)] sm:p-5"
         >
-            <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>{icon}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <span
-                    style={{
-                        display: 'block',
-                        fontSize: font.size.base,
-                        fontWeight: font.weight.semibold,
-                        color: color.textPrimary,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                    }}
-                >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                <Icon className="size-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white sm:text-base">
                     {complaint.title}
                 </span>
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                        flexWrap: 'wrap',
-                        marginTop: '0.2rem',
-                    }}
-                >
-                    <span style={{ fontSize: font.size.xs, color: color.textSecondary }}>
-                        {complaint.category}
-                    </span>
-                    <span style={{ color: color.borderDefault }}>·</span>
-                    <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                        {formatTimeAgo(complaint.createdAt)}
-                    </span>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{complaint.category}</span>
+                    <span className="text-slate-300 dark:text-slate-600">·</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{formatTimeAgo(complaint.createdAt)}</span>
                     {complaint.upvotes > 0 && (
                         <>
-                            <span style={{ color: color.borderDefault }}>·</span>
-                            <span style={{ fontSize: font.size.xs, color: '#f59e0b' }}>
-                                ▲ {complaint.upvotes}
+                            <span className="text-slate-300 dark:text-slate-600">·</span>
+                            <span className="flex items-center gap-0.5 text-xs text-amber-600">
+                                <TrendingUp className="size-3" /> {complaint.upvotes}
                             </span>
                         </>
                     )}
                 </div>
                 {complaint.address && (
-                    <span
-                        style={{
-                            display: 'block',
-                            fontSize: '0.68rem',
-                            color: color.textMuted,
-                            marginTop: '0.2rem',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        📍 {complaint.address}
+                    <span className="mt-0.5 flex items-center gap-1 truncate text-[0.68rem] text-slate-400 dark:text-slate-500">
+                        <MapPin className="size-3 shrink-0" /> {complaint.address}
                     </span>
                 )}
             </div>
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: space[1],
-                    flexShrink: 0,
-                }}
-            >
+            <div className="flex shrink-0 flex-col items-end gap-1">
                 <StatusBadge status={complaint.status} />
                 <SeverityPip severity={complaint.severity} />
             </div>
@@ -189,9 +114,14 @@ function ComplaintCard({ complaint }) {
     );
 }
 
+const QUICK_LINKS = [
+    { to: '/report', icon: Camera, label: 'Report Issue', sub: 'Photo + description' },
+    { to: '/my-reports', icon: ClipboardList, label: 'My Reports', sub: 'Track submissions' },
+    { to: '/map', icon: Map, label: 'City Map', sub: 'Live heatmap' },
+];
+
 export default function CitizenDashboard() {
     const user = useCurrentUser();
-    const logout = useLogout();
 
     const [complaints, setComplaints] = useState([]);
     const [cityStats, setCityStats] = useState(null);
@@ -221,6 +151,7 @@ export default function CitizenDashboard() {
         try {
             setCityStats(await getCityStatsApi());
         } catch {
+            // non-critical — stats simply stay empty
         } finally {
             setLoadingStats(false);
         }
@@ -229,9 +160,11 @@ export default function CitizenDashboard() {
     useEffect(() => {
         fetchComplaints(1);
         fetchStats();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
         fetchComplaints(page);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page]);
     usePolling(fetchComplaints, 30_000, complaints.length > 0);
 
@@ -241,125 +174,57 @@ export default function CitizenDashboard() {
         <PageShell>
             <NavBar
                 left={<NavBrand />}
-                right={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: space[5] }}>
-                        <NavLink to="/map">City Map</NavLink>
-                        <NavLink to="/my-reports">My Reports</NavLink>
-                        <NavLink to="/profile">Profile</NavLink>
-                        <NotificationBell />
-                        <NavButton onClick={logout}>Sign out</NavButton>
-                    </div>
-                }
+                right={<NotificationBell />}
             />
-            <main
-                style={{
-                    maxWidth: '780px',
-                    margin: '0 auto',
-                    padding: `${space[8]} ${space[6]} ${space[16]}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: space[10],
-                }}
-            >
-                <section
-                    style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: space[4],
-                        flexWrap: 'wrap',
-                    }}
+            <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 pb-16 sm:gap-10 sm:px-6 sm:py-10 xl:px-10">
+                <motion.section
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-wrap items-start justify-between gap-4"
                 >
                     <div>
-                        <h1
-                            style={{
-                                fontSize: '1.6rem',
-                                fontWeight: font.weight.extrabold,
-                                color: color.textPrimary,
-                                margin: `0 0 ${space[1]} 0`,
-                                letterSpacing: font.tracking.tight,
-                            }}
-                        >
-                            {getGreeting()}, {firstName} 👋
+                        <h1 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+                            {getGreeting()}, {firstName}
                         </h1>
-                        <p style={{ fontSize: font.size.base, color: color.textMuted, margin: 0 }}>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 sm:text-base">
                             {(user?.reputationScore ?? 0) > 0
                                 ? `${user.reputationScore} reputation points — keep reporting!`
                                 : 'Help improve your city — report an issue today.'}
                         </p>
                     </div>
-                    <AccentLink to="/report">+ Report Issue</AccentLink>
-                </section>
+                    <AccentLink to="/report">
+                        <Plus className="mr-1.5 -ml-0.5 size-4" /> Report Issue
+                    </AccentLink>
+                </motion.section>
 
-                <section
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                        gap: space[4],
-                    }}
-                >
-                    <StatCard
-                        label="Open issues"
-                        value={cityStats?.totalOpen}
-                        sub="city-wide"
-                        accentColor="#f59e0b"
-                        loading={loadingStats}
-                    />
+                <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <StatCard label="Open issues" value={cityStats?.totalOpen} sub="city-wide" accent="amber" loading={loadingStats} />
                     <StatCard
                         label="Resolved today"
                         value={cityStats?.resolvedToday}
                         sub="last 24 hours"
-                        accentColor={color.success}
+                        accent="emerald"
                         loading={loadingStats}
                     />
                     <StatCard
                         label="Avg resolution"
-                        value={
-                            cityStats?.avgResolutionHours
-                                ? `${cityStats.avgResolutionHours}h`
-                                : null
-                        }
+                        value={cityStats?.avgResolutionHours ? `${cityStats.avgResolutionHours}h` : null}
                         sub="this month"
-                        accentColor={color.accent}
+                        accent="primary"
                         loading={loadingStats}
                     />
-                    <StatCard
-                        label="Top issue"
-                        value={cityStats?.topCategory}
-                        sub="most reported"
-                        accentColor="#a78bfa"
-                        loading={loadingStats}
-                    />
+                    <StatCard label="Top issue" value={cityStats?.topCategory} sub="most reported" accent="violet" loading={loadingStats} />
                 </section>
 
-                <section style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                        }}
-                    >
-                        <h2
-                            style={{
-                                fontSize: font.size.md,
-                                fontWeight: font.weight.bold,
-                                color: color.textPrimary,
-                                margin: 0,
-                            }}
-                        >
-                            My Reports
-                        </h2>
+                <section className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">My Reports</h2>
                         {complaints.length > 0 && (
                             <Link
                                 to="/my-reports"
-                                style={{
-                                    fontSize: font.size.sm,
-                                    color: color.accent,
-                                    textDecoration: 'none',
-                                }}
+                                className="flex items-center gap-0.5 text-sm text-primary-600 hover:text-primary-700"
                             >
-                                See all →
+                                See all <ChevronRight className="size-3.5" />
                             </Link>
                         )}
                     </div>
@@ -371,23 +236,22 @@ export default function CitizenDashboard() {
                         }}
                     />
                     {loadingFeed && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                             <Skeleton height="72px" count={3} />
                         </div>
                     )}
                     {!loadingFeed && !error && complaints.length === 0 && (
                         <EmptyState
+                            icon={ClipboardList}
                             heading="No reports yet"
                             sub="Spotted a pothole, broken streetlight, or drainage issue? Report it in under 30 seconds."
-                            cta="Report your first issue →"
+                            cta="Report your first issue"
                             ctaTo="/report"
                         />
                     )}
                     {!loadingFeed && complaints.length > 0 && (
                         <>
-                            <div
-                                style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}
-                            >
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                 {complaints.map((c) => (
                                     <ComplaintCard key={c._id} complaint={c} />
                                 ))}
@@ -397,61 +261,22 @@ export default function CitizenDashboard() {
                                 totalPages={totalPages}
                                 onPrev={() => setPage((p) => p - 1)}
                                 onNext={() => setPage((p) => p + 1)}
-                                style={{ marginTop: space[2] }}
+                                className="mt-2"
                             />
                         </>
                     )}
                 </section>
 
-                <section
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                        gap: space[3],
-                    }}
-                >
-                    {[
-                        {
-                            to: '/report',
-                            icon: '📸',
-                            label: 'Report Issue',
-                            sub: 'Photo + description',
-                        },
-                        {
-                            to: '/my-reports',
-                            icon: '📋',
-                            label: 'My Reports',
-                            sub: 'Track submissions',
-                        },
-                        { to: '/map', icon: '🗺️', label: 'City Map', sub: 'Live heatmap' },
-                    ].map(({ to, icon, label, sub }) => (
+                <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {QUICK_LINKS.map(({ to, icon: Icon, label, sub }) => (
                         <Link
                             key={to}
                             to={to}
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '0.35rem',
-                                background: color.bgSurface,
-                                border: `1px solid ${color.borderDefault}`,
-                                borderRadius: radius.xl,
-                                padding: `${space[5]} ${space[4]}`,
-                                textDecoration: 'none',
-                            }}
+                            className="flex flex-col gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)]"
                         >
-                            <span style={{ fontSize: '1.5rem' }}>{icon}</span>
-                            <span
-                                style={{
-                                    fontSize: font.size.base,
-                                    fontWeight: font.weight.semibold,
-                                    color: color.textPrimary,
-                                }}
-                            >
-                                {label}
-                            </span>
-                            <span style={{ fontSize: font.size.xs, color: color.textMuted }}>
-                                {sub}
-                            </span>
+                            <Icon className="size-6 text-primary-600" aria-hidden="true" />
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
+                            <span className="text-xs text-slate-400 dark:text-slate-500">{sub}</span>
                         </Link>
                     ))}
                 </section>
