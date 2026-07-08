@@ -36,7 +36,7 @@ const userSchema = new Schema(
 
         googleId: {
             type: String,
-            default: null,
+            // default: null,
         },
 
         role: {
@@ -77,7 +77,7 @@ userSchema.index({ assignedWard: 1 });
 userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
 userSchema.pre('save', async function () {
-    if (!this.isModified('password') || !this.password) return ;
+    if (!this.isModified('password') || !this.password) return;
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
 });
