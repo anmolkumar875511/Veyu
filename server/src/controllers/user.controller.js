@@ -6,6 +6,11 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data });
 });
 
+export const uploadMyAvatar = asyncHandler(async (req, res) => {
+    const data = await UserService.updateMyAvatar(req.user.id, req.file);
+    res.status(200).json({ success: true, data });
+});
+
 export const listUsers = asyncHandler(async (req, res) => {
     const data = await UserService.listUsers(req.query);
     res.status(200).json({ success: true, data });
