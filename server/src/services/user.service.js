@@ -2,18 +2,36 @@ import User from '../models/user.model.js';
 import Ward from '../models/ward.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { PAGINATION } from '../constants/index.js';
+import { deleteCloudinaryImage } from '../config/cloudinary.js';
 
 export async function updateMyProfile(userId, dto) {
-    const { name, phone, avatar } = dto;
+    const { name, phone } = dto;
 
     const user = await User.findById(userId);
     if (!user) throw ApiError.notFound('User');
 
     if (name !== undefined) user.name = name.trim();
     if (phone !== undefined) user.phone = phone || null;
-    if (avatar !== undefined) user.avatar = avatar || null;
 
     await user.save();
+    return { user: user.toPublicJSON() };
+}
+
+export async function updateMyAvatar(userId, file) {
+    if (!file) throw ApiError.badRequest('An image file is required.', 'FILE_REQUIRED');
+
+    const user = await User.findById(userId).select('+avatarPublicId');
+    if (!user) throw ApiError.notFound('User');
+
+    const previousPublicId = user.avatarPublicId;
+
+    user.avatar = file.path; // Cloudinary secure_url
+    user.avatarPublicId = file.filename; // Cloudinary public_id
+    await user.save();
+
+    // Best-effort cleanup of the old asset — never blocks the response.
+    if (previousPublicId) deleteCloudinaryImage(previousPublicId);
+
     return { user: user.toPublicJSON() };
 }
 
