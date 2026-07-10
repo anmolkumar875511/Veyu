@@ -5,12 +5,7 @@ import User from '../models/user.model.js';
 import { NOTIFICATION_TYPES } from '../models/notification.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { logger } from '../utils/logger.js';
-import {
-    classifyComplaint,
-    scoreSeverity,
-    generateTitle,
-    checkDuplicateText,
-} from './gemini.service.js';
+import { classifyComplaint, scoreSeverity, generateTitle, checkDuplicateText } from './ai/index.js';
 import { notify } from './notification.service.js';
 import { deleteCloudinaryImage } from '../config/cloudinary.js';
 import { DUPLICATE_DETECTION, REPUTATION, PAGINATION, WARD_HEALTH } from '../constants/index.js';

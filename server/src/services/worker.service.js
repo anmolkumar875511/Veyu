@@ -5,7 +5,7 @@ import { NOTIFICATION_TYPES } from '../models/notification.model.js';
 import User from '../models/user.model.js';
 import { ApiError } from '../utils/ApiError.js';
 import { logger } from '../utils/logger.js';
-import { classifyObservation } from './gemini.service.js';
+import { classifyObservation } from './ai/index.js';
 import { notify } from './notification.service.js';
 import { FIELDMESH, PAGINATION } from '../constants/index.js';
 

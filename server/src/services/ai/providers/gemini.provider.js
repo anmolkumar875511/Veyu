@@ -1,21 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { COMPLAINT_CATEGORIES } from '../models/complaint.model.js';
-import { logger } from '../utils/logger.js';
+import { COMPLAINT_CATEGORIES } from '../../../models/complaint.model.js';
+import { logger } from '../../../utils/logger.js';
+import { safeParseJSON, fetchImageAsBase64 } from '../shared.js';
 
-const SCOPE = 'Gemini';
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const SCOPE = 'AI:Gemini';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 
-function getModel() {
-    return genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+let genAIClient = null;
+
+function getClient() {
+    if (!genAIClient) genAIClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    return genAIClient;
 }
 
-function safeParseJSON(text) {
-    try {
-        const clean = text.replace(/```json|```/g, '').trim();
-        return JSON.parse(clean);
-    } catch {
-        return null;
-    }
+function getModel() {
+    return getClient().getGenerativeModel({ model: process.env.GEMINI_MODEL || DEFAULT_MODEL });
 }
 
 export async function classifyComplaint(description) {
@@ -69,10 +68,7 @@ Scoring guide:
 
 Return severity 5 if you cannot determine the issue from the image.`;
 
-        const response = await fetch(imageUrl);
-        const buffer = Buffer.from(await response.arrayBuffer());
-        const base64 = buffer.toString('base64');
-        const mimeType = response.headers.get('content-type') ?? 'image/jpeg';
+        const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
 
         const result = await model.generateContent([
             prompt,
@@ -158,10 +154,7 @@ ${note ? `Worker's note: "${note}"` : ''}
 
 Set confidence low (< 0.5) if the image is unclear, unrelated to civic infrastructure, or ambiguous.`;
 
-        const response = await fetch(imageUrl);
-        const buffer = Buffer.from(await response.arrayBuffer());
-        const base64 = buffer.toString('base64');
-        const mimeType = response.headers.get('content-type') ?? 'image/jpeg';
+        const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
 
         const result = await model.generateContent([
             prompt,
