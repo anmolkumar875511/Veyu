@@ -55,6 +55,7 @@ const userSchema = new Schema(
         },
 
         avatar: { type: String, default: null },
+        avatarPublicId: { type: String, default: null, select: false },
         reputationScore: { type: Number, default: 0, min: 0 },
         fieldPoints: { type: Number, default: 0, min: 0 },
 
@@ -91,6 +92,7 @@ userSchema.methods.toPublicJSON = function () {
     const obj = this.toObject();
     delete obj.password;
     delete obj.fcmToken;
+    delete obj.avatarPublicId;
     return obj;
 };
 
