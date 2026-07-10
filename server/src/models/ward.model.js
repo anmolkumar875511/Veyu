@@ -38,6 +38,24 @@ const wardSchema = new Schema(
             default: null,
         },
 
+        // Centroid — used to anchor the map label/marker for this ward.
+        // Distinct from `boundary` (the polygon outline).
+        location: {
+            type: {
+                type: String,
+                enum: ['Point'],
+                required: function () {
+                    return this.location && this.location.coordinates;
+                },
+            },
+            coordinates: {
+                type: [Number], // [longitude, latitude]
+                required: function () {
+                    return this.location && this.location.type;
+                },
+            },
+        },
+
         boundary: {
             type: {
                 type: String,
@@ -99,6 +117,7 @@ wardSchema.index({ stressBand: 1 });
 wardSchema.index({ healthScore: -1 });
 wardSchema.index({ isActive: 1 });
 wardSchema.index({ boundary: '2dsphere' }, { sparse: true });
+wardSchema.index({ location: '2dsphere' }, { sparse: true });
 
 wardSchema.methods.computeStressBand = function () {
     const v = this.pulseVelocity;
