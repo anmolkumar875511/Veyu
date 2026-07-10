@@ -52,7 +52,9 @@ export async function recomputeAllWards() {
 
 export async function getPulseGridSnapshot() {
     return Ward.find({ isActive: true })
-        .select('name wardNumber pulseVelocity stressBand complaintsLast48h healthScore')
+        .select(
+            'name wardNumber pulseVelocity stressBand complaintsLast48h healthScore boundary location'
+        )
         .sort({ wardNumber: 1 })
         .lean();
 }
