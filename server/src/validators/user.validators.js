@@ -11,10 +11,6 @@ export const validateUpdateProfile = [
         .optional({ checkFalsy: true })
         .matches(/^[6-9]\d{9}$/)
         .withMessage('Enter a valid 10-digit Indian mobile number.'),
-    body('avatar')
-        .optional({ checkFalsy: true })
-        .isURL()
-        .withMessage('Avatar must be a valid URL.'),
 ];
 
 export const validateListQuery = [
