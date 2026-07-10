@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { protect, requireRole } from '../middleware/auth.middleware.js';
 import * as UserController from '../controllers/user.controller.js';
+import { uploadAvatarImage } from '../config/cloudinary.js';
 import {
     validateUpdateProfile,
     validateListQuery,
@@ -16,6 +17,7 @@ const router = Router();
 router.use(protect);
 
 router.patch('/me', validateUpdateProfile, validate, UserController.updateMyProfile);
+router.patch('/me/avatar', uploadAvatarImage, UserController.uploadMyAvatar);
 
 router.get(
     '/directory',
