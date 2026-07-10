@@ -1,5 +1,4 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 import { logger } from '../utils/logger.js';
 
@@ -10,62 +9,71 @@ cloudinary.config({
     secure: true,
 });
 
-const complaintStorage = new CloudinaryStorage({
-    cloudinary,
-    params: {
-        folder: 'nagarik/complaints',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
-    },
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function cloudinaryStorageEngine({ folder, transformation }) {
+    return {
+        _handleFile(_req, file, cb) {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { folder, transformation, resource_type: 'image' },
+                (err, result) => {
+                    if (err) return cb(err);
+                    cb(null, {
+                        path: result.secure_url,
+                        filename: result.public_id,
+                        size: result.bytes,
+                    });
+                }
+            );
+            file.stream.on('error', (err) => uploadStream.destroy(err));
+            file.stream.pipe(uploadStream);
+        },
+        _removeFile(_req, _file, cb) {
+            cb(null);
+        },
+    };
+}
+
+function createImageUploader({ folder, transformation, fieldName, maxSizeMB }) {
+    return multer({
+        storage: cloudinaryStorageEngine({ folder, transformation }),
+        limits: { fileSize: maxSizeMB * 1024 * 1024 },
+        fileFilter(_req, file, cb) {
+            if (ALLOWED_MIME_TYPES.includes(file.mimetype)) return cb(null, true);
+            cb(new Error('Only JPG, PNG, and WEBP images are accepted.'));
+        },
+    }).single(fieldName);
+}
+
+export const uploadComplaintImage = createImageUploader({
+    folder: 'veyu/complaints',
+    transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
+    fieldName: 'image',
+    maxSizeMB: 8,
 });
 
-const observationStorage = new CloudinaryStorage({
-    cloudinary,
-    params: {
-        folder: 'nagarik/observations',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
-    },
+export const uploadObservationImage = createImageUploader({
+    folder: 'veyu/observations',
+    transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
+    fieldName: 'image',
+    maxSizeMB: 8,
 });
 
-const completionStorage = new CloudinaryStorage({
-    cloudinary,
-    params: {
-        folder: 'nagarik/completions',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
-    },
+export const uploadCompletionImage = createImageUploader({
+    folder: 'veyu/completions',
+    transformation: [{ width: 1200, height: 900, crop: 'limit', quality: 'auto:good' }],
+    fieldName: 'image',
+    maxSizeMB: 8,
 });
 
-export const uploadComplaintImage = multer({
-    storage: complaintStorage,
-    limits: { fileSize: 8 * 1024 * 1024 },
-    fileFilter(_req, file, cb) {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        if (allowed.includes(file.mimetype)) return cb(null, true);
-        cb(new Error('Only JPG, PNG, and WEBP images are accepted.'));
-    },
-}).single('image');
-
-export const uploadObservationImage = multer({
-    storage: observationStorage,
-    limits: { fileSize: 8 * 1024 * 1024 },
-    fileFilter(_req, file, cb) {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        if (allowed.includes(file.mimetype)) return cb(null, true);
-        cb(new Error('Only JPG, PNG, and WEBP images are accepted.'));
-    },
-}).single('image');
-
-export const uploadCompletionImage = multer({
-    storage: completionStorage,
-    limits: { fileSize: 8 * 1024 * 1024 },
-    fileFilter(_req, file, cb) {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        if (allowed.includes(file.mimetype)) return cb(null, true);
-        cb(new Error('Only JPG, PNG, and WEBP images are accepted.'));
-    },
-}).single('image');
+export const uploadAvatarImage = createImageUploader({
+    folder: 'veyu/avatars',
+    transformation: [
+        { width: 400, height: 400, crop: 'fill', gravity: 'face', quality: 'auto:good' },
+    ],
+    fieldName: 'avatar',
+    maxSizeMB: 4,
+});
 
 export async function deleteCloudinaryImage(publicId) {
     if (!publicId) return;
