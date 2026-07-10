@@ -18,6 +18,7 @@ import Ward from '../models/ward.model.js';
 import User from '../models/user.model.js';
 import Complaint, { COMPLAINT_CATEGORIES, COMPLAINT_STATUS } from '../models/complaint.model.js';
 import Assignment, { ASSIGNMENT_STATUS } from '../models/assignment.model.js';
+import { computeWardVoronoiCells } from '../utils/voronoi.util.js';
 import Observation, { OBSERVATION_STATUS } from '../models/observation.model.js';
 import Vote from '../models/vote.model.js';
 import Notification, { NOTIFICATION_TYPES } from '../models/notification.model.js';
@@ -83,33 +84,102 @@ function jitterCoords(centerLat, centerLon, spreadKm = 1.2) {
 
 function metresOffset(centerLat, centerLon, metres) {
     const bearing = Math.random() * 2 * Math.PI;
-    const dLat = ((metres * Math.cos(bearing)) / 111_320);
+    const dLat = (metres * Math.cos(bearing)) / 111_320;
     const dLon = (metres * Math.sin(bearing)) / (111_320 * Math.cos((centerLat * Math.PI) / 180));
     return [Number((centerLon + dLon).toFixed(6)), Number((centerLat + dLat).toFixed(6))];
 }
 
 const STREETS = [
-    'Civil Lines Road', 'Cantt Road', 'Kila Road Market', 'Prem Nagar Colony',
-    'Rajendra Nagar Chowk', 'Subhash Nagar Marg', 'Krishna Nagar Gali No. 4',
-    'Shahamatganj Chauraha', 'Bakshi Bazar Lane', 'Model Town Sector 2',
-    'Ramganga Vihar Phase 1', 'Iqbal Nagar Road', 'Baradari', 'Butler Plaza Road',
-    'Delapeer Chowk', 'Income Tax Chauraha', 'Rohilkhand University Road',
-    'Junction Road', 'Old City Bazar', 'Nawabganj Road',
+    'Civil Lines Road',
+    'Cantt Road',
+    'Kila Road Market',
+    'Prem Nagar Colony',
+    'Rajendra Nagar Chowk',
+    'Subhash Nagar Marg',
+    'Krishna Nagar Gali No. 4',
+    'Shahamatganj Chauraha',
+    'Bakshi Bazar Lane',
+    'Model Town Sector 2',
+    'Ramganga Vihar Phase 1',
+    'Iqbal Nagar Road',
+    'Baradari',
+    'Butler Plaza Road',
+    'Delapeer Chowk',
+    'Income Tax Chauraha',
+    'Rohilkhand University Road',
+    'Junction Road',
+    'Old City Bazar',
+    'Nawabganj Road',
 ];
 
 // ── Indian names ─────────────────────────────────────────────────────────────
 const FIRST_NAMES = [
-    'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Krishna',
-    'Ishaan', 'Rohan', 'Kabir', 'Aryan', 'Dev', 'Karan', 'Rahul', 'Amit',
-    'Sanjay', 'Manoj', 'Deepak', 'Anil', 'Priya', 'Ananya', 'Diya', 'Saanvi',
-    'Aadhya', 'Ishita', 'Kavya', 'Neha', 'Pooja', 'Riya', 'Sneha', 'Meera',
-    'Anjali', 'Divya', 'Simran', 'Farhan', 'Zoya', 'Imran', 'Ayesha', 'Nikhil',
+    'Aarav',
+    'Vivaan',
+    'Aditya',
+    'Vihaan',
+    'Arjun',
+    'Sai',
+    'Reyansh',
+    'Krishna',
+    'Ishaan',
+    'Rohan',
+    'Kabir',
+    'Aryan',
+    'Dev',
+    'Karan',
+    'Rahul',
+    'Amit',
+    'Sanjay',
+    'Manoj',
+    'Deepak',
+    'Anil',
+    'Priya',
+    'Ananya',
+    'Diya',
+    'Saanvi',
+    'Aadhya',
+    'Ishita',
+    'Kavya',
+    'Neha',
+    'Pooja',
+    'Riya',
+    'Sneha',
+    'Meera',
+    'Anjali',
+    'Divya',
+    'Simran',
+    'Farhan',
+    'Zoya',
+    'Imran',
+    'Ayesha',
+    'Nikhil',
 ];
 const LAST_NAMES = [
-    'Sharma', 'Verma', 'Gupta', 'Singh', 'Kumar', 'Yadav', 'Mishra', 'Pandey',
-    'Tiwari', 'Chauhan', 'Rathore', 'Rawat', 'Joshi', 'Saxena', 'Agarwal',
-    'Bansal', 'Chaudhary', 'Rana', 'Thakur', 'Malhotra', 'Kapoor', 'Khan',
-    'Ansari', 'Siddiqui',
+    'Sharma',
+    'Verma',
+    'Gupta',
+    'Singh',
+    'Kumar',
+    'Yadav',
+    'Mishra',
+    'Pandey',
+    'Tiwari',
+    'Chauhan',
+    'Rathore',
+    'Rawat',
+    'Joshi',
+    'Saxena',
+    'Agarwal',
+    'Bansal',
+    'Chaudhary',
+    'Rana',
+    'Thakur',
+    'Malhotra',
+    'Kapoor',
+    'Khan',
+    'Ansari',
+    'Siddiqui',
 ];
 
 let nameCounter = 0;
@@ -124,7 +194,11 @@ function randomPhone() {
 // ── Category content templates ───────────────────────────────────────────────
 const CATEGORY_CONTENT = {
     'Road Damage': {
-        titles: ['Large crack across road surface', 'Road caved in near junction', 'Damaged road stretch causing traffic'],
+        titles: [
+            'Large crack across road surface',
+            'Road caved in near junction',
+            'Damaged road stretch causing traffic',
+        ],
         descriptions: [
             'A long stretch of the road has cracked and sunk, making it difficult for two-wheelers to pass safely.',
             'The road surface near the junction has caved in after recent traffic load, creating a hazard for vehicles.',
@@ -132,7 +206,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Pothole: {
-        titles: ['Deep pothole near market entrance', 'Multiple potholes on main stretch', 'Pothole filled with stagnant water'],
+        titles: [
+            'Deep pothole near market entrance',
+            'Multiple potholes on main stretch',
+            'Pothole filled with stagnant water',
+        ],
         descriptions: [
             'A deep pothole has formed near the market entrance and is filling with water after every rain, damaging vehicle tyres.',
             'Several potholes have appeared along this stretch, forcing vehicles to swerve into oncoming traffic.',
@@ -140,7 +218,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Garbage: {
-        titles: ['Uncollected garbage pile for days', 'Overflowing garbage bin', 'Garbage dumped on roadside'],
+        titles: [
+            'Uncollected garbage pile for days',
+            'Overflowing garbage bin',
+            'Garbage dumped on roadside',
+        ],
         descriptions: [
             'Household waste has piled up on the roadside for several days without collection, attracting stray animals.',
             'The community garbage bin is overflowing and spilling onto the footpath, causing a foul smell in the area.',
@@ -148,7 +230,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     'Water Leakage': {
-        titles: ['Pipeline leaking near main road', 'Continuous water leakage flooding street', 'Broken water pipe wasting water'],
+        titles: [
+            'Pipeline leaking near main road',
+            'Continuous water leakage flooding street',
+            'Broken water pipe wasting water',
+        ],
         descriptions: [
             'A municipal water pipeline has been leaking continuously for two days, flooding the street and wasting drinking water.',
             'Water is gushing out of a broken underground pipe joint, creating a slippery patch on the road.',
@@ -156,7 +242,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Drainage: {
-        titles: ['Blocked drain causing waterlogging', 'Open drain overflowing onto street', 'Choked drainage line near colony'],
+        titles: [
+            'Blocked drain causing waterlogging',
+            'Open drain overflowing onto street',
+            'Choked drainage line near colony',
+        ],
         descriptions: [
             'The drainage line is completely choked with silt and plastic waste, causing waterlogging after every rain.',
             'An open drain has overflowed onto the main street, creating an unhygienic and slippery walking surface.',
@@ -164,7 +254,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Streetlight: {
-        titles: ['Streetlight not working for weeks', 'Flickering streetlight near park', 'Dark stretch due to broken streetlights'],
+        titles: [
+            'Streetlight not working for weeks',
+            'Flickering streetlight near park',
+            'Dark stretch due to broken streetlights',
+        ],
         descriptions: [
             'The streetlight at this junction has not worked for over two weeks, making the area unsafe after dark.',
             'Several streetlights along this stretch are flickering intermittently and need urgent repair.',
@@ -172,7 +266,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Sewage: {
-        titles: ['Sewage overflow on residential street', 'Broken sewer line leaking waste', 'Open sewage line health hazard'],
+        titles: [
+            'Sewage overflow on residential street',
+            'Broken sewer line leaking waste',
+            'Open sewage line health hazard',
+        ],
         descriptions: [
             'Raw sewage has been overflowing onto the street for two days, creating a serious health hazard for residents.',
             'A sewer line has cracked and is leaking waste water directly onto the road near a school.',
@@ -180,7 +278,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Encroachment: {
-        titles: ['Illegal stall blocking footpath', 'Encroachment narrowing main road', 'Shop extension onto public land'],
+        titles: [
+            'Illegal stall blocking footpath',
+            'Encroachment narrowing main road',
+            'Shop extension onto public land',
+        ],
         descriptions: [
             'A vendor has set up a permanent stall on the footpath, forcing pedestrians to walk on the busy road.',
             'Illegal construction has narrowed the road width, causing regular traffic jams during peak hours.',
@@ -188,7 +290,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     'Illegal Dumping': {
-        titles: ['Construction debris dumped on empty plot', 'Illegal waste dumping near river bank', 'Truckloads of debris left on roadside'],
+        titles: [
+            'Construction debris dumped on empty plot',
+            'Illegal waste dumping near river bank',
+            'Truckloads of debris left on roadside',
+        ],
         descriptions: [
             'Contractors have been dumping construction debris on an empty plot without any permission, blocking a footpath.',
             'Someone is illegally dumping mixed waste near the river bank at night, polluting the water source.',
@@ -196,7 +302,11 @@ const CATEGORY_CONTENT = {
         ],
     },
     Other: {
-        titles: ['Damaged public bench in park', 'Stray cattle causing traffic hazard', 'Broken boundary wall near school'],
+        titles: [
+            'Damaged public bench in park',
+            'Stray cattle causing traffic hazard',
+            'Broken boundary wall near school',
+        ],
         descriptions: [
             'A public bench in the community park has broken and is now a safety hazard for children.',
             'Stray cattle have been gathering near the main road, frequently causing near-miss accidents.',
@@ -248,22 +358,35 @@ async function seed() {
 
     // ── 1. Wards ─────────────────────────────────────────────────────────────
     console.log('Seeding Wards...');
-    const wardsData = WARD_DEFS.map((w, i) => ({
-        _id: new ObjectId(),
-        wardNumber: i + 1,
-        name: `${w.name}`,
-        city: CITY,
-        centerLat: CITY_CENTER.lat + w.dLat,
-        centerLon: CITY_CENTER.lon + w.dLon,
-        pulseVelocity: 1.0,
-        stressBand: 'stable',
-        healthScore: 100,
-        isActive: true,
-    }));
 
-    const wards = await Ward.insertMany(
-        wardsData.map(({ centerLat, centerLon, ...doc }) => doc)
-    );
+    // Synthetic (but non-overlapping, gap-free) ward boundary polygons —
+    // see utils/voronoi.util.js for why. Real deployments should swap this
+    // for actual municipal ward-boundary GeoJSON if available.
+    const wardCenters = WARD_DEFS.map((w) => ({
+        lat: CITY_CENTER.lat + w.dLat,
+        lon: CITY_CENTER.lon + w.dLon,
+    }));
+    const wardCells = computeWardVoronoiCells(wardCenters);
+
+    const wardsData = WARD_DEFS.map((w, i) => {
+        const cell = wardCells[i];
+        return {
+            _id: new ObjectId(),
+            wardNumber: i + 1,
+            name: `${w.name}`,
+            city: CITY,
+            centerLat: cell.lat,
+            centerLon: cell.lng,
+            location: { type: 'Point', coordinates: [cell.lng, cell.lat] },
+            boundary: cell.polygon ? { type: 'Polygon', coordinates: [cell.polygon] } : undefined,
+            pulseVelocity: 1.0,
+            stressBand: 'stable',
+            healthScore: 100,
+            isActive: true,
+        };
+    });
+
+    const wards = await Ward.insertMany(wardsData.map(({ centerLat, centerLon, ...doc }) => doc));
     // keep the local lat/lon lookup for coordinate generation
     wards.forEach((w, i) => {
         w._centerLat = wardsData[i].centerLat;
@@ -277,10 +400,36 @@ async function seed() {
 
     // Demo accounts (created via .create to exercise the password hashing hook)
     const demoDefs = [
-        { name: 'Anmol Kumar', email: 'citizen@veyu.dev', role: 'citizen', password: PASS, phone: randomPhone() },
-        { name: 'Priya Sharma', email: 'officer@veyu.dev', role: 'officer', password: PASS, assignedWard: wards[0]._id, phone: randomPhone() },
-        { name: 'Ravi Singh', email: 'worker@veyu.dev', role: 'worker', password: PASS, assignedWard: wards[1]._id, phone: randomPhone() },
-        { name: 'Admin Nagarik', email: 'admin@veyu.dev', role: 'admin', password: PASS, phone: randomPhone() },
+        {
+            name: 'Anmol Kumar',
+            email: 'citizen@veyu.dev',
+            role: 'citizen',
+            password: PASS,
+            phone: randomPhone(),
+        },
+        {
+            name: 'Priya Sharma',
+            email: 'officer@veyu.dev',
+            role: 'officer',
+            password: PASS,
+            assignedWard: wards[0]._id,
+            phone: randomPhone(),
+        },
+        {
+            name: 'Ravi Singh',
+            email: 'worker@veyu.dev',
+            role: 'worker',
+            password: PASS,
+            assignedWard: wards[1]._id,
+            phone: randomPhone(),
+        },
+        {
+            name: 'Admin Nagarik',
+            email: 'admin@veyu.dev',
+            role: 'admin',
+            password: PASS,
+            phone: randomPhone(),
+        },
     ];
     const demoUsers = [];
     for (const u of demoDefs) demoUsers.push(await User.create({ ...u, isVerified: true }));
@@ -351,7 +500,9 @@ async function seed() {
     const officers = [demoOfficer, ...bulkUsers.filter((u) => u.role === 'officer')];
     const workers = [demoWorker, ...bulkUsers.filter((u) => u.role === 'worker')];
 
-    console.log(`  ✓ Inserted ${allUsers.length} users (${citizens.length} citizens, ${officers.length} officers, ${workers.length} workers)\n`);
+    console.log(
+        `  ✓ Inserted ${allUsers.length} users (${citizens.length} citizens, ${officers.length} officers, ${workers.length} workers)\n`
+    );
 
     // Link each ward to its officer
     console.log('Linking wards to officers...');
@@ -435,10 +586,23 @@ async function seed() {
             cursor = new Date(cursor.getTime() + randomInt(6, 48) * 3_600_000);
         };
 
-        if ([COMPLAINT_STATUS.VERIFIED, COMPLAINT_STATUS.ASSIGNED, COMPLAINT_STATUS.IN_PROGRESS, COMPLAINT_STATUS.RESOLVED].includes(status)) {
+        if (
+            [
+                COMPLAINT_STATUS.VERIFIED,
+                COMPLAINT_STATUS.ASSIGNED,
+                COMPLAINT_STATUS.IN_PROGRESS,
+                COMPLAINT_STATUS.RESOLVED,
+            ].includes(status)
+        ) {
             pushIfPast(COMPLAINT_STATUS.VERIFIED, officer);
         }
-        if ([COMPLAINT_STATUS.ASSIGNED, COMPLAINT_STATUS.IN_PROGRESS, COMPLAINT_STATUS.RESOLVED].includes(status)) {
+        if (
+            [
+                COMPLAINT_STATUS.ASSIGNED,
+                COMPLAINT_STATUS.IN_PROGRESS,
+                COMPLAINT_STATUS.RESOLVED,
+            ].includes(status)
+        ) {
             pushIfPast(COMPLAINT_STATUS.ASSIGNED, officer);
         }
         if ([COMPLAINT_STATUS.IN_PROGRESS, COMPLAINT_STATUS.RESOLVED].includes(status)) {
@@ -479,7 +643,10 @@ async function seed() {
             status,
             statusHistory: history,
             imageUrl: complaintImage(category, imgCounter),
-            resolutionImageUrl: status === COMPLAINT_STATUS.RESOLVED ? complaintImage(`${category}-fix`, imgCounter) : null,
+            resolutionImageUrl:
+                status === COMPLAINT_STATUS.RESOLVED
+                    ? complaintImage(`${category}-fix`, imgCounter)
+                    : null,
             location: { type: 'Point', coordinates: [lng, lat] },
             address: `${randomItem(STREETS)}, ${ward.name}, ${CITY}`,
             wardId: ward._id,
@@ -530,7 +697,9 @@ async function seed() {
             const burstCount = randomInt(9, 14);
             for (let i = 0; i < burstCount; i++) {
                 const jitterDays = randomInt(-6, 6);
-                const createdAt = new Date(anchor.getTime() + jitterDays * DAY_MS - randomInt(0, 23) * 3_600_000);
+                const createdAt = new Date(
+                    anchor.getTime() + jitterDays * DAY_MS - randomInt(0, 23) * 3_600_000
+                );
                 // These are historical, so they should mostly be resolved.
                 const forceStatus =
                     Math.random() < 0.8 ? COMPLAINT_STATUS.RESOLVED : COMPLAINT_STATUS.REJECTED;
@@ -553,9 +722,7 @@ async function seed() {
     for (let i = 0; i < DUPLICATE_COUNT; i++) {
         const original = randomItem(duplicateCandidates);
         const ward = wards.find((w) => String(w._id) === String(original.wardId));
-        const createdAt = new Date(
-            original.createdAt.getTime() + randomInt(1, 10) * DAY_MS
-        );
+        const createdAt = new Date(original.createdAt.getTime() + randomInt(1, 10) * DAY_MS);
         if (createdAt.getTime() > Date.now()) continue;
         const [lng, lat] = jitterCoords(ward._centerLat, ward._centerLon, 0.05);
         imgCounter++;
@@ -612,7 +779,11 @@ async function seed() {
                 forceStatus: randomItem([COMPLAINT_STATUS.SUBMITTED, COMPLAINT_STATUS.VERIFIED]),
             });
             const [triggerLng, triggerLat] = trigger.location.coordinates;
-            const [lng, lat] = metresOffset(triggerLat, triggerLng, randomInt(30, CASCADE_RISK.RADIUS_METRES - 20));
+            const [lng, lat] = metresOffset(
+                triggerLat,
+                triggerLng,
+                randomInt(30, CASCADE_RISK.RADIUS_METRES - 20)
+            );
             target.location.coordinates = [lng, lat];
             target.cascadeRisk = true;
             target.cascadeSource = trigger._id;
@@ -730,13 +901,19 @@ async function seed() {
         await Complaint.insertMany(observationCompanionComplaints);
     }
     await Observation.insertMany(observations);
-    console.log(`  ✓ Inserted ${observations.length} observations (${observationCompanionComplaints.length} auto-elevated to complaints)\n`);
+    console.log(
+        `  ✓ Inserted ${observations.length} observations (${observationCompanionComplaints.length} auto-elevated to complaints)\n`
+    );
 
     // ── 5. Assignments ───────────────────────────────────────────────────────
     console.log('Seeding Assignments...');
     const allComplaints = [...complaints, ...observationCompanionComplaints];
     const assignable = allComplaints.filter((c) =>
-        [COMPLAINT_STATUS.ASSIGNED, COMPLAINT_STATUS.IN_PROGRESS, COMPLAINT_STATUS.RESOLVED].includes(c.status)
+        [
+            COMPLAINT_STATUS.ASSIGNED,
+            COMPLAINT_STATUS.IN_PROGRESS,
+            COMPLAINT_STATUS.RESOLVED,
+        ].includes(c.status)
     );
 
     const assignments = assignable.map((c) => {
@@ -757,7 +934,11 @@ async function seed() {
                 acknowledgedAt = new Date(assignedAt.getTime() + randomInt(1, 12) * 3_600_000);
             }
         } else if (c.status === COMPLAINT_STATUS.IN_PROGRESS) {
-            status = randomItem([ASSIGNMENT_STATUS.ACKNOWLEDGED, ASSIGNMENT_STATUS.EN_ROUTE, ASSIGNMENT_STATUS.ON_SITE]);
+            status = randomItem([
+                ASSIGNMENT_STATUS.ACKNOWLEDGED,
+                ASSIGNMENT_STATUS.EN_ROUTE,
+                ASSIGNMENT_STATUS.ON_SITE,
+            ]);
             acknowledgedAt = new Date(assignedAt.getTime() + randomInt(1, 12) * 3_600_000);
             if (status !== ASSIGNMENT_STATUS.ACKNOWLEDGED) {
                 arrivedAt = new Date(acknowledgedAt.getTime() + randomInt(1, 20) * 3_600_000);
@@ -766,7 +947,8 @@ async function seed() {
             status = ASSIGNMENT_STATUS.COMPLETED;
             acknowledgedAt = new Date(assignedAt.getTime() + randomInt(1, 12) * 3_600_000);
             arrivedAt = new Date(acknowledgedAt.getTime() + randomInt(1, 20) * 3_600_000);
-            completedAt = c.resolvedAt ?? new Date(arrivedAt.getTime() + randomInt(2, 30) * 3_600_000);
+            completedAt =
+                c.resolvedAt ?? new Date(arrivedAt.getTime() + randomInt(2, 30) * 3_600_000);
             completionNote = 'Issue resolved on-site and verified with a photo.';
             completionImageUrl = `https://picsum.photos/seed/completion-${String(c._id)}/900/700`;
         }
@@ -822,7 +1004,9 @@ async function seed() {
     if (votes.length) await Vote.insertMany(votes);
 
     // Sync complaint.upvotes with the actual vote counts.
-    const voteCounts = await Vote.aggregate([{ $group: { _id: '$complaintId', count: { $sum: 1 } } }]);
+    const voteCounts = await Vote.aggregate([
+        { $group: { _id: '$complaintId', count: { $sum: 1 } } },
+    ]);
     if (voteCounts.length) {
         await Complaint.bulkWrite(
             voteCounts.map((v) => ({
@@ -870,12 +1054,18 @@ async function seed() {
     const fieldPointsByWorker = new Map();
     completedAssignmentAgg.forEach((a) => {
         const key = String(a._id);
-        fieldPointsByWorker.set(key, (fieldPointsByWorker.get(key) ?? 0) + a.count * FIELDMESH.POINTS_TASK_COMPLETED);
+        fieldPointsByWorker.set(
+            key,
+            (fieldPointsByWorker.get(key) ?? 0) + a.count * FIELDMESH.POINTS_TASK_COMPLETED
+        );
     });
     observationPointsAgg.forEach((o) => {
         const key = String(o._id);
         const submissionPoints = o.submitted * FIELDMESH.POINTS_OBSERVATION_SUBMITTED;
-        fieldPointsByWorker.set(key, (fieldPointsByWorker.get(key) ?? 0) + submissionPoints + o.elevatedPoints);
+        fieldPointsByWorker.set(
+            key,
+            (fieldPointsByWorker.get(key) ?? 0) + submissionPoints + o.elevatedPoints
+        );
     });
     await User.bulkWrite(
         Array.from(fieldPointsByWorker.entries()).map(([workerId, points]) => ({
@@ -890,15 +1080,30 @@ async function seed() {
     function renderNotification(type, data) {
         switch (type) {
             case NOTIFICATION_TYPES.REPUTATION_EARNED:
-                return { title: 'Reputation earned', message: `You earned +${data.points} reputation points.` };
+                return {
+                    title: 'Reputation earned',
+                    message: `You earned +${data.points} reputation points.`,
+                };
             case NOTIFICATION_TYPES.COMPLAINT_VERIFIED:
-                return { title: 'Complaint verified', message: `Your report "${data.title}" has been verified and is being reviewed for assignment.` };
+                return {
+                    title: 'Complaint verified',
+                    message: `Your report "${data.title}" has been verified and is being reviewed for assignment.`,
+                };
             case NOTIFICATION_TYPES.COMPLAINT_ASSIGNED:
-                return { title: 'Complaint assigned', message: `Your report "${data.title}" has been assigned to a field worker.` };
+                return {
+                    title: 'Complaint assigned',
+                    message: `Your report "${data.title}" has been assigned to a field worker.`,
+                };
             case NOTIFICATION_TYPES.COMPLAINT_IN_PROGRESS:
-                return { title: 'Work in progress', message: `A field worker is now actively working on "${data.title}".` };
+                return {
+                    title: 'Work in progress',
+                    message: `A field worker is now actively working on "${data.title}".`,
+                };
             case NOTIFICATION_TYPES.COMPLAINT_RESOLVED:
-                return { title: 'Complaint resolved', message: `Great news — "${data.title}" has been marked resolved.` };
+                return {
+                    title: 'Complaint resolved',
+                    message: `Great news — "${data.title}" has been marked resolved.`,
+                };
             case NOTIFICATION_TYPES.COMPLAINT_REJECTED:
                 return {
                     title: 'Complaint rejected',
@@ -907,22 +1112,40 @@ async function seed() {
                         : `Your report "${data.title}" was rejected by an officer.`,
                 };
             case NOTIFICATION_TYPES.UPVOTE_RECEIVED:
-                return { title: 'Your report got an upvote', message: `"${data.title}" just received community support. +2 reputation.` };
+                return {
+                    title: 'Your report got an upvote',
+                    message: `"${data.title}" just received community support. +2 reputation.`,
+                };
             case NOTIFICATION_TYPES.DUPLICATE_DETECTED:
-                return { title: 'Similar issue found', message: `Your report was linked to an existing complaint: "${data.title}". Consider upvoting it instead.` };
+                return {
+                    title: 'Similar issue found',
+                    message: `Your report was linked to an existing complaint: "${data.title}". Consider upvoting it instead.`,
+                };
             case NOTIFICATION_TYPES.CASCADE_RISK_FLAGGED:
-                return { title: 'Cascade risk flagged', message: `"${data.title}" was flagged as cascade risk following a nearby verified water/sewage complaint.` };
+                return {
+                    title: 'Cascade risk flagged',
+                    message: `"${data.title}" was flagged as cascade risk following a nearby verified water/sewage complaint.`,
+                };
             case NOTIFICATION_TYPES.OBSERVATION_NEEDS_REVIEW:
-                return { title: 'FieldMesh observation needs review', message: `A worker submitted a ${data.category} observation in ${data.wardName} that needs your review.` };
+                return {
+                    title: 'FieldMesh observation needs review',
+                    message: `A worker submitted a ${data.category} observation in ${data.wardName} that needs your review.`,
+                };
             case NOTIFICATION_TYPES.TASK_ASSIGNED:
                 return {
                     title: 'New task assigned',
                     message: `You've been assigned: "${data.title}".${data.instructions ? ` Note: ${data.instructions}` : ''}`,
                 };
             case NOTIFICATION_TYPES.FIELD_POINTS_AWARDED:
-                return { title: 'Field points awarded', message: `+${data.points} field points for ${data.reason}.` };
+                return {
+                    title: 'Field points awarded',
+                    message: `+${data.points} field points for ${data.reason}.`,
+                };
             case NOTIFICATION_TYPES.STRESS_BAND_ELEVATED:
-                return { title: `${data.wardName} stress elevated`, message: `Complaint velocity in ${data.wardName} has risen to "${data.stressBand}". Velocity: ${data.velocity}×.` };
+                return {
+                    title: `${data.wardName} stress elevated`,
+                    message: `Complaint velocity in ${data.wardName} has risen to "${data.stressBand}". Velocity: ${data.velocity}×.`,
+                };
             default:
                 return { title: 'Notification', message: 'You have a new update.' };
         }
@@ -981,7 +1204,9 @@ async function seed() {
         };
         const notifType = statusNotifMap[c.status];
         if (notifType) {
-            const rejectionEntry = c.statusHistory.find((h) => h.status === COMPLAINT_STATUS.REJECTED);
+            const rejectionEntry = c.statusHistory.find(
+                (h) => h.status === COMPLAINT_STATUS.REJECTED
+            );
             pushNotif(
                 c.createdBy,
                 notifType,
@@ -992,7 +1217,11 @@ async function seed() {
             );
         }
 
-        if (c.status === COMPLAINT_STATUS.ASSIGNED || c.status === COMPLAINT_STATUS.IN_PROGRESS || c.status === COMPLAINT_STATUS.RESOLVED) {
+        if (
+            c.status === COMPLAINT_STATUS.ASSIGNED ||
+            c.status === COMPLAINT_STATUS.IN_PROGRESS ||
+            c.status === COMPLAINT_STATUS.RESOLVED
+        ) {
             pushNotif(
                 c.createdBy,
                 NOTIFICATION_TYPES.COMPLAINT_ASSIGNED,
@@ -1031,7 +1260,12 @@ async function seed() {
         pushNotif(
             a.workerId,
             NOTIFICATION_TYPES.TASK_ASSIGNED,
-            { title: allComplaints.find((c) => String(c._id) === String(a.complaintId))?.title ?? 'a task', instructions: a.instructions },
+            {
+                title:
+                    allComplaints.find((c) => String(c._id) === String(a.complaintId))?.title ??
+                    'a task',
+                instructions: a.instructions,
+            },
             'Assignment',
             a._id,
             a.createdAt
@@ -1066,7 +1300,10 @@ async function seed() {
             pushNotif(
                 o.workerId,
                 NOTIFICATION_TYPES.FIELD_POINTS_AWARDED,
-                { points: FIELDMESH.POINTS_OBSERVATION_ELEVATED, reason: 'an elevated FieldMesh observation' },
+                {
+                    points: FIELDMESH.POINTS_OBSERVATION_ELEVATED,
+                    reason: 'an elevated FieldMesh observation',
+                },
                 'Observation',
                 o._id,
                 o.elevatedAt ?? o.createdAt
@@ -1085,7 +1322,9 @@ async function seed() {
 
     // Notify officers of wards that ended up in a high-stress band, mirroring
     // what the PulseGrid cron would emit in production.
-    const stressedWards = await Ward.find({ stressBand: { $in: ['rising', 'critical', 'emergency'] } });
+    const stressedWards = await Ward.find({
+        stressBand: { $in: ['rising', 'critical', 'emergency'] },
+    });
     const stressNotifs = [];
     for (const w of stressedWards) {
         const officer = officerByWard.get(String(w._id));
@@ -1117,9 +1356,14 @@ async function seed() {
     try {
         liveForecastResult = await generateForecasts();
     } catch (err) {
-        console.warn('  ⚠ generateForecasts() failed (likely no weather API access in this environment):', err.message);
+        console.warn(
+            '  ⚠ generateForecasts() failed (likely no weather API access in this environment):',
+            err.message
+        );
     }
-    console.log(`  ✓ Generated ${liveForecastResult.created} live forecast(s) from seasonal patterns\n`);
+    console.log(
+        `  ✓ Generated ${liveForecastResult.created} live forecast(s) from seasonal patterns\n`
+    );
 
     // Also seed a short history of already-scored forecasts so the accuracy
     // dashboard (getForecastAccuracy) has something meaningful to show.
