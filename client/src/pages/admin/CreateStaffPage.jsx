@@ -5,11 +5,12 @@
 // unauthenticated Login/Register — this is an authenticated admin tool, not
 // a login-adjacent screen.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, UserPlus } from 'lucide-react';
 import { useCurrentUser } from '../../hooks/useAuthGuards.js';
 import { createStaffApi } from '../../api/auth.api.js';
+import { listWardsApi } from '../../api/ward.api.js';
 import {
     PageShell,
     NavBar,
@@ -54,6 +55,26 @@ export default function CreateStaffPage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [created, setCreated] = useState(null);
+
+    const [wards, setWards] = useState([]);
+    const [wardsLoading, setWardsLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        listWardsApi()
+            .then(({ wards }) => {
+                if (!cancelled) setWards(wards ?? []);
+            })
+            .catch(() => {
+                if (!cancelled) setWards([]);
+            })
+            .finally(() => {
+                if (!cancelled) setWardsLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     function set(key) {
         return (e) => {
@@ -225,14 +246,22 @@ export default function CreateStaffPage() {
                                 />
                             </Field>
 
-                            <Field label="Ward ID" htmlFor="ward" optional>
-                                <Input
+                            <Field label="Ward" htmlFor="ward" optional>
+                                <select
                                     id="ward"
-                                    type="text"
                                     value={form.assignedWard}
                                     onChange={set('assignedWard')}
-                                    placeholder="MongoDB ObjectId of ward (optional)"
-                                />
+                                    disabled={wardsLoading}
+                                    className="w-full cursor-pointer rounded-lg border border-slate-200 dark:border-slate-800 bg-surface-50 dark:bg-slate-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none transition-colors hover:border-slate-300 dark:hover:border-slate-600 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <option value="">{wardsLoading ? 'Loading wards…' : 'Unassigned'}</option>
+                                    {wards.map((ward) => (
+                                        <option key={ward._id} value={ward._id}>
+                                            Ward {ward.wardNumber}
+                                            {ward.name ? ` — ${ward.name}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
                             </Field>
 
                             <div className="mt-1 flex justify-end">
