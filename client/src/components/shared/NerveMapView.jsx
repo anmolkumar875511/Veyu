@@ -3,34 +3,58 @@
 // Real Google Maps PulseGrid visualization for NerveMap.jsx.
 //
 // Layers, bottom to top:
-//   1. Heat-glow circle   — soft colored halo per ward, radius scaled by
-//                           complaint volume, color/opacity scaled by stress
-//                           band, so the map reads like a heatmap at a glance.
-//   2. Radar ping         — an expanding, fading ring animated on top of any
-//                           critical/emergency ward so it's impossible to miss.
-//   3. Marker              — colored pin, sized by pulse velocity, labeled
-//                           with the ward number.
-//   4. Data chip           — always-visible health score + velocity readout,
-//                           no click required.
-//   5. Click → info window — full detail on demand.
+//   1. Ward boundary polygon — the actual ward outline (GeoJSON polygon from
+//                              Ward.boundary), filled + stroked in the same
+//                              color as its PulseGrid stress band, so the map
+//                              reads as a proper choropleth. Wards that don't
+//                              have boundary data yet (e.g. freshly created by
+//                              an admin) fall back to a soft heat-glow circle
+//                              at their centroid so nothing is left blank.
+//   2. Radar ping             — an expanding, fading ring animated on top of
+//                              any critical/emergency ward so it's impossible
+//                              to miss.
+//   3. Ward label             — always-visible "Ward N — Name" plus health
+//                              score + velocity, anchored at the ward centroid.
+//   4. Click (polygon/circle) → info window — full detail on demand.
 //
 // Use case 1 of 3: "nerve map visualization"
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRef, useEffect } from 'react';
 import { MapContainer } from './MapContainer.jsx';
-import { wardMarkerIcon } from '../../config/mapMarkers.js';
 import { STRESS_BAND_META } from '../../constants/complaint.constants.js';
 
 const HOT_BANDS = new Set(['critical', 'emergency']);
 
-// ── DataChipOverlay ────────────────────────────────────────────────────────────
-// A small always-visible HTML chip pinned to a LatLng, showing the ward's
-// health score and stress band right on the map. Built as a raw
-// google.maps.OverlayView (rather than a React portal) so it stays perfectly
-// anchored to the map's projection during pan/zoom, same as native markers.
-function createDataChipOverlayClass() {
-    class DataChipOverlay extends window.google.maps.OverlayView {
+// GeoJSON coordinates are [lng, lat]; Google Maps wants { lat, lng }.
+function ringToPath(ring) {
+    return ring.map(([lng, lat]) => ({ lat, lng }));
+}
+
+function wardCentroidLatLng(ward) {
+    if (ward.location?.coordinates?.length === 2) {
+        const [lng, lat] = ward.location.coordinates;
+        return { lat, lng };
+    }
+    // No stored centroid — fall back to averaging the outer boundary ring.
+    const ring = ward.boundary?.coordinates?.[0];
+    if (ring?.length) {
+        const sum = ring.reduce((acc, [lng, lat]) => ({ lat: acc.lat + lat, lng: acc.lng + lng }), {
+            lat: 0,
+            lng: 0,
+        });
+        return { lat: sum.lat / ring.length, lng: sum.lng / ring.length };
+    }
+    return null;
+}
+
+// ── WardLabelOverlay ────────────────────────────────────────────────────────
+// Always-visible HTML label pinned to a LatLng: ward number + name, plus a
+// small health-score/velocity readout. Built as a raw google.maps.OverlayView
+// (rather than a React portal) so it stays perfectly anchored to the map's
+// projection during pan/zoom, same as native markers.
+function createWardLabelOverlayClass() {
+    class WardLabelOverlay extends window.google.maps.OverlayView {
         constructor(position, ward, meta) {
             super();
             this.position = position;
@@ -42,25 +66,40 @@ function createDataChipOverlayClass() {
         onAdd() {
             const div = document.createElement('div');
             div.style.position = 'absolute';
-            div.style.transform = 'translate(14px, -14px)';
+            div.style.transform = 'translate(-50%, -50%)';
             div.style.pointerEvents = 'none';
-            div.style.whiteSpace = 'nowrap';
             div.style.display = 'flex';
+            div.style.flexDirection = 'column';
             div.style.alignItems = 'center';
-            div.style.gap = '4px';
-            div.style.padding = '2px 7px';
-            div.style.borderRadius = '9999px';
+            div.style.gap = '3px';
             div.style.fontFamily = 'Inter, ui-sans-serif, system-ui, sans-serif';
-            div.style.fontSize = '11px';
-            div.style.fontWeight = '700';
-            div.style.color = '#ffffff';
-            div.style.background = this.meta.color;
-            div.style.boxShadow = '0 2px 6px rgba(15, 23, 42, 0.35)';
-            div.style.border = '1.5px solid rgba(255,255,255,0.85)';
+            div.style.whiteSpace = 'nowrap';
             div.style.zIndex = '1';
+
+            const velocity = (this.ward.pulseVelocity ?? 1).toFixed(1);
             div.innerHTML = `
-                <span>${this.ward.healthScore ?? '—'}</span>
-                <span style="opacity:0.85;font-weight:600;">· ${(this.ward.pulseVelocity ?? 1).toFixed(1)}×</span>
+                <span style="
+                    padding: 2px 8px;
+                    border-radius: 6px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #0f172a;
+                    background: rgba(255,255,255,0.92);
+                    border: 1.5px solid ${this.meta.color};
+                    box-shadow: 0 1px 4px rgba(15,23,42,0.25);
+                ">Ward ${this.ward.wardNumber ?? '—'} · ${this.ward.name ?? ''}</span>
+                <span style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 1px 7px;
+                    border-radius: 9999px;
+                    font-size: 10px;
+                    font-weight: 700;
+                    color: #ffffff;
+                    background: ${this.meta.color};
+                    box-shadow: 0 1px 3px rgba(15,23,42,0.3);
+                ">${this.ward.healthScore ?? '—'} <span style="opacity:0.85;font-weight:600;">· ${velocity}×</span></span>
             `;
             this.div = div;
 
@@ -85,7 +124,7 @@ function createDataChipOverlayClass() {
             this.div = null;
         }
     }
-    return DataChipOverlay;
+    return WardLabelOverlay;
 }
 
 // ── RadarPingOverlay ───────────────────────────────────────────────────────────
@@ -138,22 +177,44 @@ function createRadarPingOverlayClass() {
     return RadarPingOverlay;
 }
 
+function infoWindowContent(ward, meta) {
+    const velocity = ward.pulseVelocity ?? 1;
+    return `
+        <div style="font-family: Inter, sans-serif; padding: 4px 2px; min-width: 180px;">
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
+                ${ward.name}
+            </div>
+            <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">
+                Ward ${ward.wardNumber}
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 11px; margin-bottom: 4px;">
+                <span style="color: ${meta.color}; font-weight: 700;">${meta.label}</span>
+                <span style="color: #64748b;">${velocity.toFixed(1)}× velocity</span>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 11px; color: #64748b;">
+                <span>Health: <strong style="color:#0f172a;">${ward.healthScore ?? '—'}</strong></span>
+                <span>Last 48h: <strong style="color:#0f172a;">${ward.complaintsLast48h ?? 0}</strong></span>
+            </div>
+        </div>
+    `;
+}
+
 function WardOverlay({ map, wards, onSelectWard }) {
-    const markersRef = useRef([]);
+    const polygonsRef = useRef([]);
     const overlaysRef = useRef([]);
-    const circlesRef = useRef([]);
+    const shapesRef = useRef([]); // fallback heat-glow circles for boundary-less wards
     const infoWindowRef = useRef(null);
 
     useEffect(() => {
         if (!map || !window.google?.maps) return;
 
         // Clear everything from the previous render
-        markersRef.current.forEach((m) => m.setMap(null));
-        markersRef.current = [];
+        polygonsRef.current.forEach((p) => p.setMap(null));
+        polygonsRef.current = [];
         overlaysRef.current.forEach((o) => o.setMap(null));
         overlaysRef.current = [];
-        circlesRef.current.forEach((c) => c.setMap(null));
-        circlesRef.current = [];
+        shapesRef.current.forEach((s) => s.setMap(null));
+        shapesRef.current = [];
 
         if (!infoWindowRef.current) {
             infoWindowRef.current = new window.google.maps.InfoWindow({
@@ -161,39 +222,61 @@ function WardOverlay({ map, wards, onSelectWard }) {
             });
         }
 
-        const DataChipOverlay = createDataChipOverlayClass();
+        const WardLabelOverlay = createWardLabelOverlayClass();
         const RadarPingOverlay = createRadarPingOverlayClass();
         const bounds = new window.google.maps.LatLngBounds();
         let plotted = 0;
 
         wards.forEach((ward) => {
-            // Use centroid if boundary polygon exists, else ward's own coordinates
-            const position = ward.centroid ?? ward.location;
-            if (!position?.lat || !position?.lng) return;
+            const centroid = wardCentroidLatLng(ward);
+            if (!centroid) return; // no boundary and no location — nothing to plot
 
             const meta = STRESS_BAND_META[ward.stressBand] ?? STRESS_BAND_META.stable;
-            const latLng = new window.google.maps.LatLng(position.lat, position.lng);
-            const velocity = ward.pulseVelocity ?? 1;
+            const latLng = new window.google.maps.LatLng(centroid.lat, centroid.lng);
             const recentLoad = ward.complaintsLast48h ?? 0;
+            const outerRing = ward.boundary?.coordinates?.[0];
 
-            // ── 1. Heat-glow circle — soft halo scaled by complaint volume,
-            // so dense/hot wards visually "bleed" more than quiet ones, giving
-            // the whole map a heatmap-like read even before you look at pins.
-            const heatRadius = Math.min(400 + recentLoad * 60 + velocity * 150, 2400);
-            const heatOpacity = ward.stressBand === 'emergency' ? 0.22 : ward.stressBand === 'critical' ? 0.18 : ward.stressBand === 'rising' ? 0.13 : 0.08;
-            const heatCircle = new window.google.maps.Circle({
-                map,
-                center: latLng,
-                radius: heatRadius,
-                fillColor: meta.color,
-                fillOpacity: heatOpacity,
-                strokeColor: meta.color,
-                strokeOpacity: 0.28,
-                strokeWeight: 1,
-                clickable: false,
-                zIndex: 0,
-            });
-            circlesRef.current.push(heatCircle);
+            const openInfoWindow = (anchorLatLng) => {
+                infoWindowRef.current.setContent(infoWindowContent(ward, meta));
+                infoWindowRef.current.setPosition(anchorLatLng);
+                infoWindowRef.current.open(map);
+                onSelectWard?.(ward);
+            };
+
+            if (outerRing?.length >= 3) {
+                // ── 1a. Real boundary — choropleth polygon colored by stress band
+                const polygon = new window.google.maps.Polygon({
+                    map,
+                    paths: ringToPath(outerRing),
+                    fillColor: meta.color,
+                    fillOpacity: 0.32,
+                    strokeColor: meta.color,
+                    strokeOpacity: 0.9,
+                    strokeWeight: 2,
+                    clickable: true,
+                    zIndex: Math.round((ward.healthScore ?? 0) * -1) + 1000,
+                });
+                polygon.addListener('click', (e) => openInfoWindow(e.latLng ?? latLng));
+                polygonsRef.current.push(polygon);
+            } else {
+                // ── 1b. No boundary yet — soft heat-glow circle fallback so the
+                // ward is still visible on the map (e.g. a brand-new admin-created ward).
+                const heatRadius = Math.min(400 + recentLoad * 60 + (ward.pulseVelocity ?? 1) * 150, 2400);
+                const circle = new window.google.maps.Circle({
+                    map,
+                    center: latLng,
+                    radius: heatRadius,
+                    fillColor: meta.color,
+                    fillOpacity: 0.18,
+                    strokeColor: meta.color,
+                    strokeOpacity: 0.5,
+                    strokeWeight: 1.5,
+                    clickable: true,
+                    zIndex: 0,
+                });
+                circle.addListener('click', () => openInfoWindow(latLng));
+                shapesRef.current.push(circle);
+            }
 
             // ── 2. Radar ping — only for wards that actually need eyes on them
             if (HOT_BANDS.has(ward.stressBand)) {
@@ -202,53 +285,16 @@ function WardOverlay({ map, wards, onSelectWard }) {
                 overlaysRef.current.push(ping);
             }
 
-            // ── 3. Marker — scaled by velocity, labeled with ward number
-            const scale = Math.max(0.85, Math.min(velocity / 2, 1.8));
-            const marker = new window.google.maps.Marker({
-                map,
-                position: latLng,
-                icon: wardMarkerIcon(meta.color, scale),
-                title: `${ward.name} — ${meta.label} · health ${ward.healthScore ?? '—'}`,
-                label: {
-                    text: String(ward.wardNumber ?? ''),
-                    color: '#ffffff',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                },
-                zIndex: Math.round((ward.healthScore ?? 0) * -1) + 1000,
-            });
+            // ── 3. Label — ward number, name, health score + velocity
+            const label = new WardLabelOverlay(latLng, ward, meta);
+            label.setMap(map);
+            overlaysRef.current.push(label);
 
-            // ── 4. Data chip — live numbers, always visible
-            const chip = new DataChipOverlay(latLng, ward, meta);
-            chip.setMap(map);
-            overlaysRef.current.push(chip);
-
-            // ── 5. Click → full detail
-            marker.addListener('click', () => {
-                infoWindowRef.current.setContent(`
-                    <div style="font-family: Inter, sans-serif; padding: 4px 2px; min-width: 180px;">
-                        <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
-                            ${ward.name}
-                        </div>
-                        <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">
-                            Ward ${ward.wardNumber}
-                        </div>
-                        <div style="display: flex; gap: 10px; font-size: 11px; margin-bottom: 4px;">
-                            <span style="color: ${meta.color}; font-weight: 700;">${meta.label}</span>
-                            <span style="color: #64748b;">${velocity.toFixed(1)}× velocity</span>
-                        </div>
-                        <div style="display: flex; gap: 10px; font-size: 11px; color: #64748b;">
-                            <span>Health: <strong style="color:#0f172a;">${ward.healthScore ?? '—'}</strong></span>
-                            <span>Last 48h: <strong style="color:#0f172a;">${recentLoad}</strong></span>
-                        </div>
-                    </div>
-                `);
-                infoWindowRef.current.open(map, marker);
-                onSelectWard?.(ward);
-            });
-
-            markersRef.current.push(marker);
-            bounds.extend(latLng);
+            if (outerRing?.length >= 3) {
+                outerRing.forEach(([lng, lat]) => bounds.extend(new window.google.maps.LatLng(lat, lng)));
+            } else {
+                bounds.extend(latLng);
+            }
             plotted += 1;
         });
 
@@ -262,9 +308,9 @@ function WardOverlay({ map, wards, onSelectWard }) {
         }
 
         return () => {
-            markersRef.current.forEach((m) => m.setMap(null));
+            polygonsRef.current.forEach((p) => p.setMap(null));
             overlaysRef.current.forEach((o) => o.setMap(null));
-            circlesRef.current.forEach((c) => c.setMap(null));
+            shapesRef.current.forEach((s) => s.setMap(null));
         };
     }, [map, wards]);
 
