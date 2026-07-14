@@ -8,6 +8,11 @@ export function useCurrentUser() {
     return user;
 }
 
+export function useUpdateUser() {
+    const { updateUser } = useAuth();
+    return updateUser;
+}
+
 export function useRequireRole(requiredRoles, redirectTo = '/unauthorized') {
     const { user, isAuthenticated, isLoading } = useAuth();
     const navigate = useNavigate();
