@@ -36,6 +36,8 @@ function authReducer(state, action) {
             };
         case 'AUTH_LOGOUT':
             return { ...initialState, isLoading: false };
+        case 'USER_UPDATED':
+            return { ...state, user: { ...state.user, ...action.payload } };
         case 'CLEAR_ERROR':
             return { ...state, error: null };
         default:
@@ -112,6 +114,10 @@ export function AuthProvider({ children }) {
 
     const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), []);
 
+    const updateUser = useCallback((partialUser) => {
+        dispatch({ type: 'USER_UPDATED', payload: partialUser });
+    }, []);
+
     const value = {
         user: state.user,
         isAuthenticated: state.isAuthenticated,
@@ -121,6 +127,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         clearError,
+        updateUser,
         // Exposed so GoogleSuccessPage can hydrate auth state without a full refresh cycle
         dispatch,
     };
