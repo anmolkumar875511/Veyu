@@ -8,6 +8,16 @@ export async function updateMyProfileApi(dto) {
     return data.data; // { user }
 }
 
+// Avatar is a real image upload (multipart), not a pasted URL.
+export async function uploadMyAvatarApi(file) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const { data } = await apiClient.patch('/users/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data.data; // { user }
+}
+
 // ── Directory (officer/admin) — for dropdowns ─────────────────────────────────
 export async function getUserDirectoryApi(role) {
     const { data } = await apiClient.get('/users/directory', { params: { role } });
