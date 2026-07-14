@@ -7,7 +7,7 @@
 // auth-card layout (as if they'd been signed out), which felt broken coming
 // from a sidebar link. The nav below mirrors each role's real shell exactly.
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     CheckCircle2,
@@ -27,8 +27,8 @@ import {
     EyeOff,
     Loader2,
 } from 'lucide-react';
-import { useCurrentUser, useLogout } from '../../hooks/useAuthGuards.js';
-import { updateMyProfileApi, parseUserError } from '../../api/user.api.js';
+import { useCurrentUser, useLogout, useUpdateUser } from '../../hooks/useAuthGuards.js';
+import { updateMyProfileApi, uploadMyAvatarApi, parseUserError } from '../../api/user.api.js';
 import { changePasswordApi } from '../../api/auth.api.js';
 import { getRoleHome } from '../../guards/RouteGuards.jsx';
 import { getRoleTheme } from '../../lib/roleTheme';
@@ -146,15 +146,49 @@ function InlineError({ message }) {
 export default function ProfilePage() {
     const user = useCurrentUser();
     const logout = useLogout();
+    const updateUser = useUpdateUser();
     const navigate = useNavigate();
     const { collapsed } = useSidebar();
     const nav = navForRole(user?.role);
     const roleTheme = getRoleTheme(user?.role);
 
+    // ── Avatar upload ────────────────────────────────────────────────────────
+    const [avatar, setAvatar] = useState(user?.avatar ?? '');
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const [avatarErr, setAvatarErr] = useState(null);
+    const fileInputRef = useRef(null);
+
+    async function handleAvatarChange(e) {
+        const file = e.target.files?.[0];
+        e.target.value = ''; // allow re-selecting the same file later
+        if (!file) return;
+
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            setAvatarErr('Only JPG, PNG, and WEBP images are accepted.');
+            return;
+        }
+        if (file.size > 4 * 1024 * 1024) {
+            setAvatarErr('Image must be under 4MB.');
+            return;
+        }
+
+        setAvatarErr(null);
+        setAvatarUploading(true);
+        try {
+            const { user: updated } = await uploadMyAvatarApi(file);
+            setAvatar(updated.avatar);
+            updateUser({ avatar: updated.avatar });
+        } catch (err) {
+            setAvatarErr(parseUserError(err));
+        } finally {
+            setAvatarUploading(false);
+        }
+    }
+
     // ── Profile form ──────────────────────────────────────────────────────────
     const [name, setName] = useState(user?.name ?? '');
     const [phone, setPhone] = useState(user?.phone ?? '');
-    const [avatar, setAvatar] = useState(user?.avatar ?? '');
     const [saving, setSaving] = useState(false);
     const [profileErr, setProfileErr] = useState(null);
     const [profileOk, setProfileOk] = useState(false);
@@ -165,11 +199,11 @@ export default function ProfilePage() {
         setProfileErr(null);
         setProfileOk(false);
         try {
-            await updateMyProfileApi({
+            const { user: updated } = await updateMyProfileApi({
                 name: name.trim() || undefined,
                 phone: phone.trim() || undefined,
-                avatar: avatar.trim() || undefined,
             });
+            updateUser({ name: updated.name, phone: updated.phone });
             setProfileOk(true);
             setTimeout(() => setProfileOk(false), 3000);
         } catch (err) {
@@ -266,12 +300,34 @@ export default function ProfilePage() {
                                     {(user?.name ?? '?').charAt(0).toUpperCase()}
                                 </span>
                             )}
+                            {avatarUploading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                    <Loader2 className="size-5 animate-spin text-white" />
+                                </div>
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={handleAvatarChange}
+                                className="hidden"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={avatarUploading}
+                                aria-label="Change profile photo"
+                                className="absolute -bottom-0.5 -right-0.5 flex size-6 items-center justify-center rounded-full border-2 border-white dark:border-slate-950 bg-slate-700 text-white transition-colors hover:bg-slate-600 disabled:cursor-not-allowed"
+                            >
+                                <Camera className="size-3.5" />
+                            </button>
                         </div>
                         <div className="min-w-0 flex-1">
                             <h1 className="truncate text-xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                                 {user?.name ?? 'Your account'}
                             </h1>
                             <p className="truncate text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
+                            {avatarErr && <p className="mt-0.5 text-xs text-rose-600 dark:text-rose-400">{avatarErr}</p>}
                         </div>
                         <button
                             onClick={() => navigate(getRoleHome(user?.role))}
@@ -340,17 +396,6 @@ export default function ProfilePage() {
                                     />
                                 </Field>
                             </div>
-
-                            <Field label="Avatar URL" htmlFor="avatar" optional>
-                                <input
-                                    id="avatar"
-                                    type="url"
-                                    value={avatar}
-                                    onChange={(e) => setAvatar(e.target.value)}
-                                    placeholder="https://…"
-                                    className={inputClasses}
-                                />
-                            </Field>
 
                             <div className="flex justify-end">
                                 <button
