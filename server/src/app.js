@@ -15,6 +15,7 @@ import wardRoutes from './routes/ward.routes.js';
 import forecastRoutes from './routes/forecast.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import userRoutes from './routes/user.routes.js';
+import cronRoutes from './routes/cron.routes.js';
 
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.middleware.js';
 
@@ -70,6 +71,7 @@ export function createApp() {
     app.use('/api/forecasts', forecastRoutes);
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/users', userRoutes);
+    app.use('/api/cron', cronRoutes);
 
     app.use(notFoundHandler);
     app.use(errorHandler);

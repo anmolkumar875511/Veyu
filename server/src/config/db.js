@@ -86,8 +86,9 @@ export async function connectDB() {
         retryCount++;
 
         if (retryCount > MAX_RETRIES) {
-            log.error(`Failed to connect to MongoDB after ${MAX_RETRIES} attempts. Exiting.`, err);
-            process.exit(1);
+            log.error(`Failed to connect to MongoDB after ${MAX_RETRIES} attempts.`, err);
+            retryCount = 0;
+            throw new Error(`MongoDB connection failed after ${MAX_RETRIES} attempts: ${err.message}`);
         }
 
         const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount - 1);

@@ -84,7 +84,12 @@ async function main() {
     validateEnv();
     registerProcessHandlers();
 
-    await connectDB();
+    try {
+        await connectDB();
+    } catch (err) {
+        logger.error('Startup', 'Could not connect to MongoDB — exiting', err);
+        process.exit(1);
+    }
 
     startPulseGridCron();
     startSilentSignalCron();
